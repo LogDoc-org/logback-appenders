@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration debug="true">
+    <appender class="ru.gang.logdoc.appenders.LogdocTcpAppender" name="LOGDOC">
+        <!-- Mandatory fields -->
+        <host>127.0.0.1</host>
+        <port>7686</port>
+
+        <!-- Token (logdoc config) configuration -->
+        <!-- In case if you dont have stored config or configuration is changed -->
+        <login/> <!-- optional -->
+        <password/> <!-- optional -->
+        <!-- / -->
+
+        <!-- In case when you use predefined config -->
+        <token/> <!--optional -->
+
+
+        <!-- Optional tuning. Default values are predefined. Used only if token is missed -->
+        <prefix/> <!-- unconditional prefix for logger name (source) -->
+        <suffix/> <!-- unconditional suffix for logger name (source) -->
+        <queueSize>128</queueSize>  <!-- Size of events caching queue -->
+        <retryDelay>30000</retryDelay> <!-- Delay before reconnect -->
+        <skipTime>false</skipTime> <!-- Should we skip local time-->
+        <skipSource>false</skipSource> <!-- Should we skip logger name (source) -->
+        <skipLevel>false</skipLevel> <!-- Should we skip log level (all goes as LOG) -->
+        <multiline>true</multiline> <!-- Should we keep multilined logs as is -->
+
+        <!-- Tracing fields config. Used only if token is missed -->
+        <staticPrefix> <!-- Fields that are always placed at the very beginning of logline -->
+            <separator>²</separator> <!-- separator between fields -->
+            <openMark>^^</openMark> <!-- Mark if any field exists (logline must apply .startWith()) -->
+            <closeMark>''</closeMark> <!-- Mark when logline begins after fields -->
+            <clear>true</clear> <!-- Flag if should we clear fields from event after parsing -->
+            <field> <!-- One field description -->
+                <fieldName>preFirst</fieldName> <!-- name, mandatory -->
+                <position>0</position> <!-- position, optional (order of declaration is used if missed) -->
+            </field>
+            <field>
+                <fieldName>preSecond</fieldName>
+                <position>1</position>
+            </field>
+        </staticPrefix>
+
+        <staticSuffix> <!-- Fields that are always placed at the very end of logline. Config is the same as for prefix fields -->
+            <separator>²</separator>
+            <openMark>^^</openMark>
+            <closeMark>''</closeMark>
+            <clear>true</clear>
+            <field>
+                <fieldName>postLast</fieldName>
+                <position>0</position>
+            </field>
+        </staticSuffix>
+
+        <dynamicFields> <!-- Fields that may be placed at any position in logline -->
+            <clearMarks>true</clearMarks> <!-- Flag if should we clear fields markers after parsing -->
+            <clearValues>false</clearValues> <!-- Flag if should we clear fields values after parsing -->
+            <field>
+                <fieldName>UserId</fieldName> <!-- Field name, mandatory -->
+                <openMark>^^</openMark> <!-- Field match beginning mark, mandatory -->
+                <closeMark>''</closeMark> <!-- Field match end mark, mandatory -->
+            </field>
+            <field>
+                <fieldName>UserName</fieldName>
+                <openMark>-</openMark>
+                <closeMark>-</closeMark>
+            </field>
+        </dynamicFields>
+    </appender>
+
+    <root level="DEBUG">
+        <appender-ref ref="LOGDOC"/>
+    </root>
+</configuration>
