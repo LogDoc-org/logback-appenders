@@ -6,7 +6,7 @@
 
     <groupId>logdoc</groupId>
     <artifactId>logback-appender</artifactId>
-    <version>0.0.11</version>
+    <version>0.0.35</version>
 
     <name>logdoc-logback-appender</name>
 
@@ -39,7 +39,7 @@
         <dependency>
             <groupId>logdoc</groupId>
             <artifactId>logdoc-structs</artifactId>
-            <version>0.0.2</version>
+            <version>0.0.4</version>
             <!--            <scope>compile</scope>-->
         </dependency>
         <dependency>

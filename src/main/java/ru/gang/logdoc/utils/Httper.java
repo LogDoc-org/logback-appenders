@@ -20,13 +20,6 @@ import java.util.zip.InflaterInputStream;
  */
 @SuppressWarnings("unused")
 public class Httper {
-
-    public static final String Method_GET = "GET", Method_POST = "POST", Method_HEAD = "HEAD", Method_OPTIONS = "OPTIONS", Method_PUT = "PUT", Method_TRACE = "TRACE", Method_DELETE = "DELETE";
-    public static final String FormEnc_URLENC = "application/x-www-form-urlencoded", FormEnc_MULTIPART = "multipart/form-data";
-    public static final String HeaderAccept = "Accept", HeaderConnection = "Connection", HeaderUserAgent = "User-Agent", HeaderAcceptEncoding = "Accept-Encoding", HeaderLocation = "Location", HeaderBasicAuth = "Authorization", HeaderTransferEncoding = "Content-Transfer-Encoding";
-
-    private final static String LINE_FEED = "\r\n", HttpsScheme = "https", CharsetPart = "charset=", encGzip = "gzip", encDeflate = "deflate";
-
     private final static SSLSocketFactory ignoranceFactory;
 
     static {
@@ -66,50 +59,43 @@ public class Httper {
         this.timeOutMs = timeOutMs;
         headers = new HashMap<>(0);
 
-        headers.put(HeaderAccept, "*/*");
-        headers.put(HeaderConnection, "keep-alive");
-        headers.put(HeaderAcceptEncoding, encGzip + "," + encDeflate);
+        headers.put("Content-Type", "application/octet-stream");
     }
 
     public void execute(final URL url, final Map<String, String> requestHeaders, final Consumer<OutputStream> feeder, final Consumer<InputStream> listener) throws Exception {
         final URLConnection urlConnection = url.openConnection();
 
-        try {
-            urlConnection.setDoInput(true);
-            urlConnection.setDoOutput(true);
+        urlConnection.setDoInput(true);
+        urlConnection.setDoOutput(true);
 
-            ((HttpURLConnection) urlConnection).setRequestMethod("POST");
-            ((HttpURLConnection) urlConnection).setInstanceFollowRedirects(false);
-            urlConnection.setUseCaches(false);
+        ((HttpURLConnection) urlConnection).setRequestMethod("POST");
+        ((HttpURLConnection) urlConnection).setInstanceFollowRedirects(false);
+        urlConnection.setUseCaches(false);
 
-            if (timeOutMs > 0) {
-                urlConnection.setConnectTimeout((int) timeOutMs);
-                urlConnection.setReadTimeout((int) timeOutMs);
-            }
+        if (timeOutMs > 0) {
+            urlConnection.setConnectTimeout((int) timeOutMs);
+            urlConnection.setReadTimeout((int) timeOutMs);
+        }
 
-            for (final String headerName : headers.keySet())
-                urlConnection.setRequestProperty(headerName, headers.get(headerName));
+        for (final String headerName : headers.keySet())
+            urlConnection.setRequestProperty(headerName, headers.get(headerName));
 
-            for (final String headerName : requestHeaders.keySet())
-                urlConnection.setRequestProperty(headerName, requestHeaders.get(headerName));
+        for (final String headerName : requestHeaders.keySet())
+            urlConnection.setRequestProperty(headerName, requestHeaders.get(headerName));
 
-            if (url.getProtocol().equalsIgnoreCase(HttpsScheme) && !useCheckCertificate)
-                ((HttpsURLConnection) urlConnection).setSSLSocketFactory(ignoranceFactory);
+        if (url.getProtocol().equalsIgnoreCase("https") && !useCheckCertificate)
+            ((HttpsURLConnection) urlConnection).setSSLSocketFactory(ignoranceFactory);
 
-            urlConnection.connect();
+        urlConnection.connect();
 
-            feeder.accept(urlConnection.getOutputStream());
+        feeder.accept(urlConnection.getOutputStream());
 
-            if (listener == null)
-                return;
+        final int code = ((HttpURLConnection) urlConnection).getResponseCode();
+        final String cEncoding = urlConnection.getContentEncoding() == null ? "" : urlConnection.getContentEncoding();
 
-            final int code = ((HttpURLConnection) urlConnection).getResponseCode();
-            final String cEncoding = urlConnection.getContentEncoding() == null ? "" : urlConnection.getContentEncoding();
+        if (listener != null) {
             final InputStream is0 = code >= 400 ? ((HttpURLConnection) urlConnection).getErrorStream() : urlConnection.getInputStream();
-
-            listener.accept(cEncoding.equalsIgnoreCase(encGzip) ? new GZIPInputStream(is0) : cEncoding.equalsIgnoreCase(encDeflate) ? new InflaterInputStream(is0) : is0);
-        } finally {
-            ((HttpURLConnection) urlConnection).disconnect();
+            listener.accept(cEncoding.equalsIgnoreCase("gzip") ? new GZIPInputStream(is0) : cEncoding.equalsIgnoreCase("deflate") ? new InflaterInputStream(is0) : is0);
         }
     }
 }

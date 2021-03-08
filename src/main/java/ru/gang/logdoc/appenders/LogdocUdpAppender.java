@@ -1,17 +1,17 @@
 package ru.gang.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ru.gang.logdoc.structs.enums.BinMsg;
+import ru.gang.logdoc.structs.utils.Tools;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -43,25 +43,24 @@ public class LogdocUdpAppender extends LogdocBase {
 
                 try {
                     final DatagramSocket datagramSocket = new DatagramSocket();
+                    datagramSocket.setSoTimeout(15000);
 
                     if (tokenBytes.length < 16)
                         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream(128); final DataOutputStream daos = new DataOutputStream(baos)) {
                             askToken(daos);
+                            daos.flush();
 
-                            datagramSocket.send(new DatagramPacket(baos.toByteArray(), 0, address, port));
+                            datagramSocket.send(new DatagramPacket(baos.toByteArray(), baos.size(), address, port));
 
-                            final DatagramPacket reply = new DatagramPacket(new byte[32], 32);
+                            final DatagramPacket reply = new DatagramPacket(new byte[1024], 1024);
                             datagramSocket.receive(reply);
-
                             final ByteBuffer buffer = ByteBuffer.wrap(reply.getData());
 
-                            if (buffer.get(0) != header[0] || buffer.get(1) != header[1])
+                            if (buffer.get() != header[0] || buffer.get() != header[1] || buffer.get() != BinMsg.NettyTokenResponse.ordinal())
                                 throw new IOException("Wrong header");
 
-                            if (buffer.get(2) == 0)
-                                buffer.get(tokenBytes, 3, 16);
-                            else
-                                throw new IOException("Cant get token");
+                            tokenBytes = new byte[16];
+                            buffer.get(tokenBytes);
                         }
 
                     final String msg = event.getFormattedMessage();
@@ -70,15 +69,17 @@ public class LogdocUdpAppender extends LogdocBase {
                     for (final String part : multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : "")))
                         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream(128); final DataOutputStream daos = new DataOutputStream(baos)) {
                             writePart(part, event, fields, daos);
-                            datagramSocket.send(new DatagramPacket(baos.toByteArray(), 0, address, port));
+                            datagramSocket.send(new DatagramPacket(baos.toByteArray(), baos.size(), address, port));
                         }
 
                 } catch (Exception e) {
                     if (!deque.offerFirst(event))
                         addInfo("Dropping event due to socket connection error and maxed out deque capacity");
+                    e.printStackTrace();
                 }
             }
         } catch (InterruptedException ignore) {
+            ignore.printStackTrace();
         }
 
         addInfo("shutting down");
@@ -93,4 +94,6 @@ public class LogdocUdpAppender extends LogdocBase {
         task.cancel(true);
         super.stop();
     }
+
+
 }

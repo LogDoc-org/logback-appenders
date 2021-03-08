@@ -1,11 +1,10 @@
 package ru.gang.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ru.gang.logdoc.structs.enums.BinMsg;
 import ru.gang.logdoc.utils.Httper;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -13,6 +12,7 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -55,12 +55,13 @@ public class LogdocHttpAppender extends LogdocBase {
 
                 try {
                     if (tokenBytes.length < 16) {
-                        headers.put(CmdHeader, "TokenByConfig");
+                        headers.put(CmdHeader, BinMsg.AppendersRequestToken.name());
 
                         httper.execute(url, headers,
                                 os -> {
                                     try {
                                         askToken(new DataOutputStream(os));
+                                        os.flush();
                                     } catch (IOException e) {
                                         throw new RuntimeException("Cant get token");
                                     }
@@ -72,9 +73,12 @@ public class LogdocHttpAppender extends LogdocBase {
                                         throw new RuntimeException(e);
                                     }
                                 });
+
+                        deque.offerFirst(event);
+                        continue;
                     }
 
-                    headers.put(CmdHeader, "LogEvent");
+                    headers.put(CmdHeader, BinMsg.LogEvent.name());
                     headers.put(TokenHeader, token);
 
                     final String msg = event.getFormattedMessage();

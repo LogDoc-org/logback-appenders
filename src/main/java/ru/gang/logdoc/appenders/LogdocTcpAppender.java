@@ -3,9 +3,7 @@ package ru.gang.logdoc.appenders;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.net.DefaultSocketConnector;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -69,6 +67,9 @@ public class LogdocTcpAppender extends LogdocBase {
 
                             for (final String part : multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : "")))
                                 writePart(part, event, fields, daos);
+
+                            if (deque.isEmpty())
+                                daos.flush();
                         } catch (Exception e) {
                             if (!deque.offerFirst(event))
                                 addInfo("Dropping event due to socket connection error and maxed out deque capacity");
@@ -99,11 +100,12 @@ public class LogdocTcpAppender extends LogdocBase {
             dais = null;
 
             if (socket != null) {
-                dais = new DataInputStream(socket.getInputStream());
-                daos = new DataOutputStream(socket.getOutputStream());
+                dais = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+                daos = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
                 if (tokenBytes.length < 15) {
                     askToken(daos);
+                    daos.flush();
 
                     if (dais.readByte() != header[0] || dais.readByte() != header[1])
                         throw new IOException("Wrong header");

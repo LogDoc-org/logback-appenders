@@ -177,22 +177,22 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     }
 
     protected void readToken(final DataInputStream dais) throws IOException {
-        final int response = dais.readByte();
-        if (response == 0) {
+        final short response = dais.readByte();
+        if (response == BinMsg.NettyTokenResponse.ordinal()) {
             tokenBytes = new byte[16];
 
-            if (dais.read(tokenBytes) != 16)
-                throw new IOException("Cant read/interpretate server response with token");
+            dais.readFully(tokenBytes);
 
             final ByteBuffer bb = ByteBuffer.wrap(tokenBytes);
 
             token = new UUID(bb.getLong(), bb.getLong()).toString();
         } else {
             String error = "Unknow error on server side";
-            try {
-                error = dais.readUTF();
-            } catch (final Exception ignore) {
-            }
+            if (dais.available() > 2)
+                try {
+                    error = dais.readUTF();
+                } catch (final Exception ignore) {
+                }
             throw new IOException(error);
         }
     }
