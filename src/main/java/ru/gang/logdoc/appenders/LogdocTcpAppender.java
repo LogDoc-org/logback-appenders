@@ -98,19 +98,16 @@ public class LogdocTcpAppender extends LogdocBase {
                                         event, fields, daos);
 
                                 eventSplittedCnt = 0;
-                                r.nextBytes(partialId);
                                 writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
                                         0, partialId,
                                         event, fields, daos);
 
                                 eventSplittedCnt = 3;
-                                r.nextBytes(partialId);
                                 writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
                                         (THRESHOLD * eventSplittedCnt) - 1, partialId,
                                         event, fields, daos);
 
                                 eventSplittedCnt = 1;
-                                r.nextBytes(partialId);
                                 writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
                                         (THRESHOLD * eventSplittedCnt) - 1, partialId,
                                         event, fields, daos);
