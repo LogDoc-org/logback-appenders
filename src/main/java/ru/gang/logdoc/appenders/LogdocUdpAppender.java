@@ -1,6 +1,8 @@
 package ru.gang.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import ru.gang.logdoc.model.DynamicPosFields;
+import ru.gang.logdoc.model.StaticPosFields;
 import ru.gang.logdoc.structs.enums.BinMsg;
 import ru.gang.logdoc.structs.utils.Tools;
 
@@ -95,5 +97,139 @@ public class LogdocUdpAppender extends LogdocBase {
         super.stop();
     }
 
+    public String getHost() {
+        return host;
+    }
 
+    public void setHost(final String host) {
+        this.host = host;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(final String login) {
+        this.login = login;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(final String password) {
+        this.password = password;
+    }
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(final String token) {
+        this.token = token;
+    }
+
+    public String getPrefix() {
+        return prefix;
+    }
+
+    public void setPrefix(final String prefix) {
+        this.prefix = prefix == null ? "" : prefix.trim() + (prefix.trim().endsWith(".") ? "" : ".");
+    }
+
+    public String getSuffix() {
+        return suffix;
+    }
+
+    public void setSuffix(final String suffix) {
+        this.suffix = suffix == null ? "" : (suffix.trim().startsWith(".") ? "" : ".") + suffix.trim();
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(final int port) {
+        this.port = port;
+    }
+
+    public int getQueueSize() {
+        return queueSize;
+    }
+
+    public void setQueueSize(final int queueSize) {
+        this.queueSize = queueSize;
+    }
+
+    public int getRetryDelay() {
+        return retryDelay;
+    }
+
+    public void setRetryDelay(final int retryDelay) {
+        this.retryDelay = retryDelay;
+    }
+
+    public boolean isSkipTime() {
+        return skipTime;
+    }
+
+    public void setSkipTime(final boolean skipTime) {
+        this.skipTime = skipTime;
+    }
+
+    public boolean isSkipSource() {
+        return skipSource;
+    }
+
+    public void setSkipSource(final boolean skipSource) {
+        this.skipSource = skipSource;
+    }
+
+    public boolean isSkipLevel() {
+        return skipLevel;
+    }
+
+    public void setSkipLevel(final boolean skipLevel) {
+        this.skipLevel = skipLevel;
+    }
+
+    public boolean isMultiline() {
+        return multiline;
+    }
+
+    public void setMultiline(final boolean multiline) {
+        this.multiline = multiline;
+    }
+
+    public byte[] getTokenBytes() {
+        return tokenBytes;
+    }
+
+    public void setTokenBytes(final byte[] tokenBytes) {
+        this.tokenBytes = tokenBytes;
+    }
+
+    public StaticPosFields getStaticPrefix() {
+        return staticPrefix;
+    }
+
+    public void setStaticPrefix(final StaticPosFields staticPrefix) {
+        this.staticPrefix = staticPrefix;
+    }
+
+    public StaticPosFields getStaticSuffix() {
+        return staticSuffix;
+    }
+
+    public void setStaticSuffix(final StaticPosFields staticSuffix) {
+        this.staticSuffix = staticSuffix;
+    }
+
+    public DynamicPosFields getDynamicFields() {
+        return dynamicFields;
+    }
+
+    public void setDynamicFields(final DynamicPosFields dynamicFields) {
+        this.dynamicFields = dynamicFields;
+    }
 }
