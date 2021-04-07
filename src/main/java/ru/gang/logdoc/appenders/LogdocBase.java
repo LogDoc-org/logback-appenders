@@ -204,9 +204,9 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
         try {
             if (!deque.offer(event, eventDelayLimit.getMilliseconds(), TimeUnit.MILLISECONDS))
-                addInfo("Dropping event due to timeout limit of [" + eventDelayLimit + "] being exceeded");
+                addWarn("Dropping event due to timeout limit of [" + eventDelayLimit + "] being exceeded");
         } catch (InterruptedException e) {
-            addError("Interrupted while appending event to SocketAppender", e);
+            addError("Interrupted while appending event to SocketAppender: " + e.getMessage(), e);
         }
     }
 

@@ -29,7 +29,7 @@ public class LogdocUdpAppender extends LogdocBase {
         try {
             address = InetAddress.getByName(host);
         } catch (final UnknownHostException ex) {
-            addError("unknown host: " + host);
+            addError("unknown host: " + host + ": " + ex.getMessage(), ex);
             return false;
         }
 
@@ -75,16 +75,15 @@ public class LogdocUdpAppender extends LogdocBase {
                         }
 
                 } catch (Exception e) {
+                    addError(e.getMessage(), e);
                     if (!deque.offerFirst(event))
                         addInfo("Dropping event due to socket connection error and maxed out deque capacity");
-                    e.printStackTrace();
                 }
             }
         } catch (InterruptedException ignore) {
-            ignore.printStackTrace();
         }
 
-        addInfo("shutting down");
+        addInfo("смерть");
     }
 
 

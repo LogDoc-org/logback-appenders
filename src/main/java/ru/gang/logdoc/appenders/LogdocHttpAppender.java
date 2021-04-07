@@ -64,6 +64,7 @@ public class LogdocHttpAppender extends LogdocBase {
                                     try {
                                         askToken(new DataOutputStream(os));
                                         os.flush();
+                                        addInfo("Спросили токен");
                                     } catch (IOException e) {
                                         throw new RuntimeException("Cant get token");
                                     }
@@ -71,6 +72,7 @@ public class LogdocHttpAppender extends LogdocBase {
                                 is -> {
                                     try {
                                         readToken(new DataInputStream(is));
+                                        addInfo("Прочитали токен: " + token);
                                     } catch (IOException e) {
                                         throw new RuntimeException(e);
                                     }
@@ -86,17 +88,20 @@ public class LogdocHttpAppender extends LogdocBase {
                     final String msg = event.getFormattedMessage();
                     final Map<String, String> fields = fielder.apply(msg);
 
+                    addInfo("Отправляем событие: " + msg);
                     for (final String part : multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : "")))
                         httper.execute(url, headers,
                                 os -> {
                                     try (final DataOutputStream daos = new DataOutputStream(os)) {
                                         writePart(part, event, fields, daos);
+                                        addInfo("\tзаписали часть: " + part);
                                     } catch (IOException e) {
                                         throw new RuntimeException(e);
                                     }
                                 }, null);
 
                 } catch (Exception e) {
+                    addError(e.getMessage(), e);
                     if (!deque.offerFirst(event))
                         addInfo("Dropping event due to socket connection error and maxed out deque capacity");
                 }

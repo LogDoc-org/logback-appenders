@@ -59,11 +59,12 @@ public class LogdocTcpAppender extends LogdocBase {
                 }
             };
         } catch (final UnknownHostException ex) {
-            addError("unknown host: " + host);
+            addError("unknown host: " + host + ": " + ex.getMessage(), ex);
             return false;
         }
 
         peerId = "remote peer " + host + ":" + port + ": ";
+        addInfo("Наш хост: " + peerId);
         task = getContext().getScheduledExecutorService().submit(this::doJob);
 
         return true;
@@ -73,7 +74,7 @@ public class LogdocTcpAppender extends LogdocBase {
         try {
             while (checkIfSocketOk()) {
                 try {
-                    addInfo(peerId + "connection established");
+                    addInfo(peerId + "есть коннект");
 
                     while (true) {
                         final ILoggingEvent event = deque.takeFirst();
@@ -84,36 +85,12 @@ public class LogdocTcpAppender extends LogdocBase {
 
                             String[] eventSplitted = event.getMessage().split(stringLenPattern);
                             if (eventSplitted.length > 1) {
-
-                                /*for (int eventSplittedCnt = 0; eventSplittedCnt < eventSplitted.length; eventSplittedCnt++) {
+                                for (int eventSplittedCnt = 0; eventSplittedCnt < eventSplitted.length; eventSplittedCnt++) {
                                     r.nextBytes(partialId);
                                     writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
                                             eventSplittedCnt == 0 ? 0 : (THRESHOLD * eventSplittedCnt) - 1, partialId,
                                             event, fields, daos);
-                                }*/
-
-                                // TODO Убрать потом, демо отправки лога по частям по 4 символа в разном порядке
-                                int eventSplittedCnt = 2;
-                                r.nextBytes(partialId);
-                                writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
-                                        (THRESHOLD * eventSplittedCnt) - 1, partialId,
-                                        event, fields, daos);
-
-                                eventSplittedCnt = 0;
-                                writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
-                                        0, partialId,
-                                        event, fields, daos);
-
-                                eventSplittedCnt = 3;
-                                writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
-                                        (THRESHOLD * eventSplittedCnt) - 1, partialId,
-                                        event, fields, daos);
-
-                                eventSplittedCnt = 1;
-                                writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
-                                        (THRESHOLD * eventSplittedCnt) - 1, partialId,
-                                        event, fields, daos);
-
+                                }
                             } else
                                 for (final String part : multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : "")))
                                     writePart(part, event, fields, daos);
@@ -121,6 +98,7 @@ public class LogdocTcpAppender extends LogdocBase {
                             if (deque.isEmpty())
                                 daos.flush();
                         } catch (Exception e) {
+                            addError(e.getMessage(), e);
                             if (!deque.offerFirst(event))
                                 addInfo("Dropping event due to socket connection error and maxed out deque capacity");
 
@@ -128,16 +106,16 @@ public class LogdocTcpAppender extends LogdocBase {
                         }
                     }
                 } catch (IOException ex) {
-                    addInfo(peerId + "connection failed: " + ex);
+                    addError(peerId + "факап: " + ex.getMessage(), ex);
                 } finally {
                     closer.accept(null);
-                    addInfo(peerId + "connection closed");
+                    addInfo(peerId + "коннект закрыт");
                 }
             }
         } catch (InterruptedException ignore) {
         }
 
-        addInfo("shutting down");
+        addInfo("смерть");
     }
 
     private boolean checkIfSocketOk() {
