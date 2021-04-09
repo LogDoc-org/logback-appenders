@@ -4,16 +4,17 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.StaticPosFields;
 import ru.gang.logdoc.structs.enums.BinMsg;
-import ru.gang.logdoc.structs.utils.Tools;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.*;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -231,4 +232,13 @@ public class LogdocUdpAppender extends LogdocBase {
     public void setDynamicFields(final DynamicPosFields dynamicFields) {
         this.dynamicFields = dynamicFields;
     }
+
+    public int getStringTokenSize() {
+        return stringTokenSize;
+    }
+
+    public void setDynamicFields(final Integer stringTokenSize) {
+        this.stringTokenSize = stringTokenSize != null ? stringTokenSize : -1;
+    }
+
 }

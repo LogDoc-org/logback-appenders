@@ -6,7 +6,9 @@ import ru.gang.logdoc.model.StaticPosFields;
 import ru.gang.logdoc.structs.enums.BinMsg;
 import ru.gang.logdoc.utils.Httper;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -14,7 +16,6 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Future;
-import java.util.zip.GZIPOutputStream;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -280,4 +281,13 @@ public class LogdocHttpAppender extends LogdocBase {
     public void setDynamicFields(final DynamicPosFields dynamicFields) {
         this.dynamicFields = dynamicFields;
     }
+
+    public int getStringTokenSize() {
+        return stringTokenSize;
+    }
+
+    public void setDynamicFields(final Integer stringTokenSize) {
+        this.stringTokenSize = stringTokenSize != null ? stringTokenSize: -1;
+    }
+
 }

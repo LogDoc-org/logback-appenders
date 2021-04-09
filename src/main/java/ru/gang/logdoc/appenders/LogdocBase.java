@@ -4,39 +4,13 @@ import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
 import ch.qos.logback.core.util.Duration;
-import ru.gang.logdoc.flaps.Cleaner;
-import ru.gang.logdoc.flaps.Fielder;
-import ru.gang.logdoc.flaps.Leveler;
-import ru.gang.logdoc.flaps.Multiplexer;
-import ru.gang.logdoc.flaps.Sourcer;
 import ru.gang.logdoc.flaps.Timer;
-import ru.gang.logdoc.flaps.impl.DynCleaner;
-import ru.gang.logdoc.flaps.impl.DynFielder;
-import ru.gang.logdoc.flaps.impl.DynPostCleaner;
-import ru.gang.logdoc.flaps.impl.DynPostFielder;
-import ru.gang.logdoc.flaps.impl.EmptyCleaner;
-import ru.gang.logdoc.flaps.impl.EmptyFielder;
-import ru.gang.logdoc.flaps.impl.EmptyLeveler;
-import ru.gang.logdoc.flaps.impl.EmptyMultiplexer;
-import ru.gang.logdoc.flaps.impl.EmptySourcer;
-import ru.gang.logdoc.flaps.impl.EmptyTimer;
-import ru.gang.logdoc.flaps.impl.PostCleaner;
-import ru.gang.logdoc.flaps.impl.PostFielder;
-import ru.gang.logdoc.flaps.impl.PostSourcer;
-import ru.gang.logdoc.flaps.impl.PreCleaner;
-import ru.gang.logdoc.flaps.impl.PreDynCleaner;
-import ru.gang.logdoc.flaps.impl.PreDynFielder;
-import ru.gang.logdoc.flaps.impl.PreDynPostCleaner;
-import ru.gang.logdoc.flaps.impl.PreDynPostFielder;
-import ru.gang.logdoc.flaps.impl.PreFielder;
-import ru.gang.logdoc.flaps.impl.PrePostCleaner;
-import ru.gang.logdoc.flaps.impl.PrePostFielder;
-import ru.gang.logdoc.flaps.impl.PreSourcer;
-import ru.gang.logdoc.flaps.impl.SimpleLeveler;
-import ru.gang.logdoc.flaps.impl.SimpleMultiplexer;
-import ru.gang.logdoc.flaps.impl.SimpleSourcer;
-import ru.gang.logdoc.flaps.impl.SimpleTimer;
-import ru.gang.logdoc.flaps.impl.SourcerBoth;
+import ru.gang.logdoc.flaps.*;
+import ru.gang.logdoc.flaps.impl.*;
+import ru.gang.logdoc.flaps.impl.multiplexers.EmptyMultiplexer;
+import ru.gang.logdoc.flaps.impl.multiplexers.FixedStrLengthMultiplexer;
+import ru.gang.logdoc.flaps.impl.multiplexers.MaxStrLengthMultiplexer;
+import ru.gang.logdoc.flaps.impl.multiplexers.SimpleMultiplexer;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.Field;
 import ru.gang.logdoc.model.StaticPosFields;
@@ -48,11 +22,7 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.Objects;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -72,7 +42,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     protected BlockingDeque<ILoggingEvent> deque;
 
     protected String host, login, password, token, prefix = "", suffix = "";
-    protected int port, queueSize = 128, retryDelay = 30000;
+    protected int port, queueSize = 128, retryDelay = 30000, stringTokenSize = 4, maxTokenSize = 10;
     protected boolean skipTime = false, skipSource = false, skipLevel = false, multiline = true;
     protected byte[] tokenBytes = new byte[0];
     protected StaticPosFields staticPrefix = null, staticSuffix = null;
@@ -149,6 +119,9 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
         if (!multiline)
             multiplexer = new SimpleMultiplexer();
+        else if (stringTokenSize > 0)
+            multiplexer = new FixedStrLengthMultiplexer(stringTokenSize);
+        else multiplexer = new MaxStrLengthMultiplexer(maxTokenSize);
 
         if (!sortedNames.isEmpty()) {
             final boolean pre = staticPrefix != null && !staticPrefix.getFields().isEmpty();
@@ -269,7 +242,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     }
 
     protected void writePartCompose(final String part, final int partialCount,
-                                    final int partialIndex, final byte[]  partialId,
+                                    final int partialIndex, final byte[] partialId,
                                     final ILoggingEvent event, final Map<String, String> fields,
                                     final DataOutputStream daos) throws IOException {
         daos.write(header);

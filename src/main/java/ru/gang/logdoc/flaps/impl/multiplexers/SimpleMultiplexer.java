@@ -1,6 +1,5 @@
-package ru.gang.logdoc.flaps.impl;
+package ru.gang.logdoc.flaps.impl.multiplexers;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
 import ru.gang.logdoc.flaps.Multiplexer;
 
 import java.util.ArrayList;
@@ -12,6 +11,7 @@ import java.util.List;
  * 25.02.2021 13:16
  * logback-adapter ☭ sweat and blood
  */
+//  <multiline>false</multiline> <!-- Should we keep multilined logs as is -->
 public class SimpleMultiplexer implements Multiplexer {
     @Override
     public List<String> apply(final String s) {

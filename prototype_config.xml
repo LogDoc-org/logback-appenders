@@ -24,6 +24,7 @@
         <skipSource>false</skipSource> <!-- Should we skip logger name (source) -->
         <skipLevel>false</skipLevel> <!-- Should we skip log level (all goes as LOG) -->
         <multiline>true</multiline> <!-- Should we keep multilined logs as is -->
+        <stringTokenSize>4</stringTokenSize> <!-- string part size -->
 
         <!-- Tracing fields config. Used only if token is missed -->
         <staticPrefix> <!-- Fields that are always placed at the very beginning of logline -->

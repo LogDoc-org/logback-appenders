@@ -1,4 +1,4 @@
-package ru.gang.logdoc.flaps.impl;
+package ru.gang.logdoc.flaps.impl.multiplexers;
 
 import ru.gang.logdoc.flaps.Multiplexer;
 

@@ -9,7 +9,9 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
@@ -21,12 +23,16 @@ import java.util.function.Consumer;
  */
 public class LogdocTcpAppender extends LogdocBase {
     private String peerId;
-    private Consumer<Void> closer = unused -> { };
+    private Consumer<Void> closer = unused -> {
+    };
     private Callable<?> connector;
     private Socket socket;
     private DataOutputStream daos;
     private DataInputStream dais;
     private Future<?> task;
+
+    private final Random r = new Random();
+    private final byte[] partialId = new byte[8];
 
     @Override
     protected boolean subStart() {
@@ -72,8 +78,18 @@ public class LogdocTcpAppender extends LogdocBase {
                             final String msg = event.getFormattedMessage();
                             final Map<String, String> fields = fielder.apply(msg);
 
-                            for (final String part : multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : "")))
-                                writePart(part, event, fields, daos);
+                            List<String> strings = multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : ""));
+                            for (int i = 0; i < strings.size(); i++) {
+                                String part = strings.get(i);
+                                if (!multiline)
+                                    writePart(part, event, fields, daos);
+                                else {
+                                    r.nextBytes(partialId);
+                                    writePartCompose(part, strings.size(),
+                                            strings.size() == 0 ? 0 : (stringTokenSize * strings.size()) - 1, partialId,
+                                            event, fields, daos);
+                                }
+                            }
 
                             if (deque.isEmpty())
                                 daos.flush();
@@ -274,5 +290,13 @@ public class LogdocTcpAppender extends LogdocBase {
 
     public void setDynamicFields(final DynamicPosFields dynamicFields) {
         this.dynamicFields = dynamicFields;
+    }
+
+    public int getStringTokenSize() {
+        return stringTokenSize;
+    }
+
+    public void setDynamicFields(final Integer stringTokenSize) {
+        this.stringTokenSize = stringTokenSize != null ? stringTokenSize : -1;
     }
 }
