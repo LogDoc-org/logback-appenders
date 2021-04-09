@@ -47,6 +47,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.SortedSet;
@@ -234,15 +235,15 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     protected void askToken(final DataOutputStream daos) throws IOException {
         daos.write(header);
         daos.writeByte(BinMsg.AppendersRequestToken.ordinal());
-        daos.writeUTF(login == null ? "" : login);
-        daos.writeUTF(password == null ? "" : password);
+        writeUtf(login == null ? "" : login, daos);
+        writeUtf(password == null ? "" : password, daos);
         daos.writeBoolean(skipTime);
         daos.writeBoolean(skipSource);
         daos.writeBoolean(skipLevel);
         daos.writeBoolean(multiline);
         daos.writeShort(sortedNames.size());
         for (final String fieldName : sortedNames)
-            daos.writeUTF(fieldName);
+            writeUtf(fieldName, daos);
     }
 
     protected void askConfig(final DataOutputStream daos) throws IOException {
@@ -255,16 +256,16 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         daos.write(header);
         daos.writeByte(BinMsg.LogEvent.ordinal());
         daos.write(tokenBytes);
-        daos.writeUTF(timer.apply(event.getTimeStamp()));
-        daos.writeUTF(rtId);
-        daos.writeUTF(sourcer.apply(event.getLoggerName()));
+        writeUtf(timer.apply(event.getTimeStamp()), daos);
+        writeUtf(rtId, daos);
+        writeUtf(sourcer.apply(event.getLoggerName()), daos);
         daos.writeByte(leveler.apply(event.getLevel()));
         daos.writeByte(0); // partial count
         daos.writeByte(0); // partial index
-        daos.writeUTF(part);
+        writeUtf(part, daos);
         daos.writeShort(sortedNames.size());
         for (final String n : sortedNames)
-            daos.writeUTF(fields.getOrDefault(n, ""));
+            writeUtf(fields.getOrDefault(n, ""), daos);
     }
 
     protected void writePartCompose(final String part, final int partialCount,
@@ -274,16 +275,22 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         daos.write(header);
         daos.writeByte(BinMsg.LogEventCompose.ordinal());
         daos.write(tokenBytes);
-        daos.writeUTF(timer.apply(event.getTimeStamp()));
-        daos.writeUTF(rtId);
-        daos.writeUTF(sourcer.apply(event.getLoggerName()));
+        writeUtf(timer.apply(event.getTimeStamp()), daos);
+        writeUtf(rtId, daos);
+        writeUtf(sourcer.apply(event.getLoggerName()), daos);
         daos.writeByte(leveler.apply(event.getLevel()));
         daos.writeByte(partialCount); // partial count
         daos.writeByte(partialIndex); // partial index
-        daos.writeUTF(part);
+        writeUtf(part, daos);
         daos.write(partialId); // partial id
         daos.writeShort(sortedNames.size());
         for (final String n : sortedNames)
-            daos.writeUTF(fields.getOrDefault(n, ""));
+            writeUtf(fields.getOrDefault(n, ""), daos);
+    }
+
+    protected void writeUtf(final String s, final DataOutputStream os) throws IOException {
+        final byte[] a = s.getBytes(StandardCharsets.UTF_8);
+        os.writeShort(a.length);
+        os.write(a);
     }
 }

@@ -5,16 +5,11 @@ import ch.qos.logback.core.net.DefaultSocketConnector;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.StaticPosFields;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
@@ -25,19 +20,13 @@ import java.util.function.Consumer;
  * logback-adapter ☭ sweat and blood
  */
 public class LogdocTcpAppender extends LogdocBase {
-    private static final int THRESHOLD = 4;
-    private static final String stringLenPattern = "(?<=\\G.{" + THRESHOLD + "})";
     private String peerId;
-    private Consumer<Void> closer = unused -> {
-    };
+    private Consumer<Void> closer = unused -> { };
     private Callable<?> connector;
     private Socket socket;
     private DataOutputStream daos;
     private DataInputStream dais;
     private Future<?> task;
-
-    private final byte[] partialId = new byte[8];
-    private final Random r = new Random();
 
     @Override
     protected boolean subStart() {
@@ -83,17 +72,8 @@ public class LogdocTcpAppender extends LogdocBase {
                             final String msg = event.getFormattedMessage();
                             final Map<String, String> fields = fielder.apply(msg);
 
-                            String[] eventSplitted = event.getMessage().split(stringLenPattern);
-                            if (eventSplitted.length > 1) {
-                                for (int eventSplittedCnt = 0; eventSplittedCnt < eventSplitted.length; eventSplittedCnt++) {
-                                    r.nextBytes(partialId);
-                                    writePartCompose(eventSplitted[eventSplittedCnt], eventSplitted.length,
-                                            eventSplittedCnt == 0 ? 0 : (THRESHOLD * eventSplittedCnt) - 1, partialId,
-                                            event, fields, daos);
-                                }
-                            } else
-                                for (final String part : multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : "")))
-                                    writePart(part, event, fields, daos);
+                            for (final String part : multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : "")))
+                                writePart(part, event, fields, daos);
 
                             if (deque.isEmpty())
                                 daos.flush();
