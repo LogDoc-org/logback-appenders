@@ -241,10 +241,10 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             writeUtf(fields.getOrDefault(n, ""), daos);
     }
 
-    protected void writePartCompose(final String part, final int partialCount,
-                                    final int partialIndex, final byte[] partialId,
-                                    final ILoggingEvent event, final Map<String, String> fields,
-                                    final DataOutputStream daos) throws IOException {
+    protected void writePart(final String part, final int partialCount,
+                             final int partialIndex, final byte[] partialId,
+                             final ILoggingEvent event, final Map<String, String> fields,
+                             final DataOutputStream daos) throws IOException {
         daos.write(header);
         daos.writeByte(BinMsg.LogEventCompose.ordinal());
         daos.write(tokenBytes);

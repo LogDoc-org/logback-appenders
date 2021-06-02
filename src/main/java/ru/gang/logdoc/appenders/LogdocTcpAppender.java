@@ -85,7 +85,7 @@ public class LogdocTcpAppender extends LogdocBase {
                                     writePart(part, event, fields, daos);
                                 else {
                                     r.nextBytes(partialId);
-                                    writePartCompose(part, strings.size(),
+                                    writePart(part, strings.size(),
                                             strings.size() == 0 ? 0 : (stringTokenSize * strings.size()) - 1, partialId,
                                             event, fields, daos);
                                 }
@@ -154,6 +154,14 @@ public class LogdocTcpAppender extends LogdocBase {
         closer.accept(null);
         task.cancel(true);
         super.stop();
+    }
+
+    @Override
+    public synchronized void doAppend(ILoggingEvent eventObject) {
+
+        // Когда идут логи, нужно держать сокет под наблюдением
+        task = getContext().getScheduledExecutorService().submit(this::checkIfSocketOk);
+        super.doAppend(eventObject);
     }
 
     public String getHost() {
