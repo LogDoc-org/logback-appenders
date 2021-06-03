@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -22,6 +23,9 @@ import java.util.function.Consumer;
  * logback-adapter ☭ sweat and blood
  */
 public class LogdocTcpAppender extends LogdocBase {
+
+    private static final int SOCKET_CHECK_TIMEOUT = 5000;
+
     private String peerId;
     private Consumer<Void> closer = unused -> {
     };
@@ -30,6 +34,7 @@ public class LogdocTcpAppender extends LogdocBase {
     private DataOutputStream daos;
     private DataInputStream dais;
     private Future<?> task;
+    private Future<?> portMonitoringTask;
 
     private final Random r = new Random();
     private final byte[] partialId = new byte[8];
@@ -52,6 +57,7 @@ public class LogdocTcpAppender extends LogdocBase {
                     socket.close();
                 } catch (final Exception ignore) {
                 }
+                socket = null;
             };
         } catch (final UnknownHostException ex) {
             addError("unknown host: " + host + ": " + ex.getMessage(), ex);
@@ -60,6 +66,9 @@ public class LogdocTcpAppender extends LogdocBase {
 
         peerId = "remote peer " + host + ":" + port + ": ";
         addInfo("Наш хост: " + peerId);
+
+        // Когда идут логи, нужно держать сокет под наблюдением
+        portMonitoringTask = getContext().getScheduledExecutorService().scheduleAtFixedRate(this::checkIfSocketOk, 5, 5, TimeUnit.SECONDS);
         task = getContext().getScheduledExecutorService().submit(this::doJob);
 
         return true;
@@ -116,7 +125,7 @@ public class LogdocTcpAppender extends LogdocBase {
 
     private boolean checkIfSocketOk() {
         try {
-            if (socket != null && socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown())
+            if (socket != null && socket.getInetAddress().isReachable(SOCKET_CHECK_TIMEOUT) && socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown())
                 return true;
 
             socket = (Socket) connector.call();
@@ -153,14 +162,12 @@ public class LogdocTcpAppender extends LogdocBase {
             return;
         closer.accept(null);
         task.cancel(true);
+        portMonitoringTask.cancel(true);
         super.stop();
     }
 
     @Override
     public synchronized void doAppend(ILoggingEvent eventObject) {
-
-        // Когда идут логи, нужно держать сокет под наблюдением
-        task = getContext().getScheduledExecutorService().submit(this::checkIfSocketOk);
         super.doAppend(eventObject);
     }
 
