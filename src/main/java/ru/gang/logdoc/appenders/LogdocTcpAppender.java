@@ -22,6 +22,7 @@ import java.util.function.Consumer;
  * 24.02.2021 18:03
  * logback-adapter ☭ sweat and blood
  */
+@SuppressWarnings("unused")
 public class LogdocTcpAppender extends LogdocBase {
 
     private static final int SOCKET_CHECK_TIMEOUT = 5000;
@@ -34,7 +35,6 @@ public class LogdocTcpAppender extends LogdocBase {
     private DataOutputStream daos;
     private DataInputStream dais;
     private Future<?> task;
-    private Future<?> portMonitoringTask;
 
     private final Random r = new Random();
     private final byte[] partialId = new byte[8];
@@ -64,69 +64,80 @@ public class LogdocTcpAppender extends LogdocBase {
             return false;
         }
 
-        peerId = "remote peer " + host + ":" + port + ": ";
+        peerId = host + ":" + port + ": ";
         addInfo("Наш хост: " + peerId);
 
-        // Когда идут логи, нужно держать сокет под наблюдением
-        portMonitoringTask = getContext().getScheduledExecutorService().scheduleAtFixedRate(this::checkIfSocketOk, 5, 5, TimeUnit.SECONDS);
-        task = getContext().getScheduledExecutorService().submit(this::doJob);
+        task = getContext().getScheduledExecutorService().submit(this::mainEndlessCycle);
 
         return true;
     }
 
-    private void doJob() {
+    @SuppressWarnings({"BusyWait", "ConstantConditions"})
+    private void mainEndlessCycle() {
+        addInfo("Главный цикл аппендера (пере-)запущен");
+
         try {
-            while (checkIfSocketOk()) {
+            if (socketFails()) {
+                int delay = 0;
+
+                do {
+                    delay += 3;
+                    delay = Math.min(30, delay);
+
+                    addWarn("Коннект не готов, ждём " + delay + " сек.");
+                    Thread.sleep(delay * 1000L);
+                } while (socketFails());
+            }
+
+            ILoggingEvent event;
+            while ((event = deque.takeFirst()) != null) {
                 try {
-                    addInfo(peerId + "есть коннект");
+                    final String msg = event.getFormattedMessage();
+                    final Map<String, String> fields = fielder.apply(msg);
 
-                    while (true) {
-                        final ILoggingEvent event = deque.takeFirst();
-
-                        try {
-                            final String msg = event.getFormattedMessage();
-                            final Map<String, String> fields = fielder.apply(msg);
-
-                            List<String> strings = multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : ""));
-                            for (int i = 0; i < strings.size(); i++) {
-                                String part = strings.get(i);
-                                if (!multiline)
-                                    writePart(part, event, fields, daos);
-                                else {
-                                    r.nextBytes(partialId);
-                                    writePart(part, strings.size(),
-                                            strings.size() == 0 ? 0 : (stringTokenSize * strings.size()) - 1, partialId,
-                                            event, fields, daos);
-                                }
-                            }
-
-                            if (deque.isEmpty())
-                                daos.flush();
-                        } catch (Exception e) {
-                            addError(e.getMessage(), e);
-                            if (!deque.offerFirst(event))
-                                addInfo("Dropping event due to socket connection error and maxed out deque capacity");
-
-                            throw e;
+                    final List<String> strings = multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : ""));
+                    for (int i = 0; i < strings.size(); i++) {
+                        String part = strings.get(i);
+                        if (!multiline)
+                            writePart(part, event, fields, daos);
+                        else {
+                            r.nextBytes(partialId);
+                            writePart(part, strings.size(),
+                                    strings.size() == 0 ? 0 : (stringTokenSize * strings.size()) - 1, partialId,
+                                    event, fields, daos);
                         }
                     }
-                } catch (IOException ex) {
-                    addError(peerId + "факап: " + ex.getMessage(), ex);
-                } finally {
-                    closer.accept(null);
-                    addInfo(peerId + "коннект закрыт");
+
+                    if (deque.isEmpty())
+                        daos.flush();
+                } catch (Exception e) {
+                    addError(e.getMessage(), e);
+                    if (!deque.offerFirst(event))
+                        addInfo("Не можем положить событие обратно в очередь - она заполнена.");
+
+                    throw e;
                 }
             }
-        } catch (InterruptedException ignore) {
+
+            daos.flush();
+        } catch (final InterruptedException e0) {
+            closer.accept(null);
+            addInfo(peerId + "коннект закрыт - нас прервали, логгер умер.");
+        } catch (final Exception e) {
+            addError(peerId + "Ошибка цикла отправки: " + e.getMessage(), e);
+            addInfo("Уходим на рестарт");
+            try { task.cancel(true); } catch (final Exception ignore) { }
+            try { closer.accept(null); } catch (final Exception ignore) { }
+            task = getContext().getScheduledExecutorService().schedule(this::mainEndlessCycle, 5, TimeUnit.SECONDS);
         }
 
-        addInfo("смерть");
+        addInfo("Главный цикл аппендера остановлен");
     }
 
-    private boolean checkIfSocketOk() {
+    private boolean socketFails() {
         try {
             if (socket != null && socket.getInetAddress().isReachable(SOCKET_CHECK_TIMEOUT) && socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown())
-                return true;
+                return false;
 
             socket = (Socket) connector.call();
             daos = null;
@@ -146,14 +157,14 @@ public class LogdocTcpAppender extends LogdocBase {
                     readToken(dais);
                 }
 
-                return true;
+                return false;
             }
         } catch (final Exception e) {
             addError(peerId + e.getMessage(), e);
             closer.accept(null);
         }
 
-        return false;
+        return true;
     }
 
     @Override
@@ -162,13 +173,7 @@ public class LogdocTcpAppender extends LogdocBase {
             return;
         closer.accept(null);
         task.cancel(true);
-        portMonitoringTask.cancel(true);
         super.stop();
-    }
-
-    @Override
-    public synchronized void doAppend(ILoggingEvent eventObject) {
-        super.doAppend(eventObject);
     }
 
     public String getHost() {
