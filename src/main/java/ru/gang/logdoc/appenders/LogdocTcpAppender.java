@@ -1,18 +1,16 @@
 package ru.gang.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.net.DefaultSocketConnector;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.StaticPosFields;
 
+import javax.net.SocketFactory;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -30,7 +28,6 @@ public class LogdocTcpAppender extends LogdocBase {
     private String peerId;
     private Consumer<Void> closer = unused -> {
     };
-    private Callable<?> connector;
     private Socket socket;
     private DataOutputStream daos;
     private DataInputStream dais;
@@ -41,28 +38,21 @@ public class LogdocTcpAppender extends LogdocBase {
 
     @Override
     protected boolean subStart() {
-        try {
-            connector = new DefaultSocketConnector(InetAddress.getByName(host), port, 0, retryDelay);
-
-            closer = unused -> {
-                try {
-                    dais.close();
-                } catch (final Exception ignore) {
-                }
-                try {
-                    daos.close();
-                } catch (final Exception ignore) {
-                }
-                try {
-                    socket.close();
-                } catch (final Exception ignore) {
-                }
-                socket = null;
-            };
-        } catch (final UnknownHostException ex) {
-            addError("unknown host: " + host + ": " + ex.getMessage(), ex);
-            return false;
-        }
+        closer = unused -> {
+            try {
+                dais.close();
+            } catch (final Exception ignore) {
+            }
+            try {
+                daos.close();
+            } catch (final Exception ignore) {
+            }
+            try {
+                socket.close();
+            } catch (final Exception ignore) {
+            }
+            socket = null;
+        };
 
         peerId = host + ":" + port + ": ";
         addInfo("Наш хост: " + peerId);
@@ -72,21 +62,17 @@ public class LogdocTcpAppender extends LogdocBase {
         return true;
     }
 
-    @SuppressWarnings({"BusyWait", "ConstantConditions"})
+    @SuppressWarnings({"ConstantConditions"})
     private void mainEndlessCycle() {
         addInfo("Главный цикл аппендера (пере-)запущен");
 
         try {
             if (socketFails()) {
-                int delay = 0;
-
-                do {
-                    delay += 3;
-                    delay = Math.min(30, delay);
-
-                    addWarn("Коннект не готов, ждём " + delay + " сек.");
-                    Thread.sleep(delay * 1000L);
-                } while (socketFails());
+                addWarn("Коннект не готов, главный цикл остановлен, ждём 3 сек.");
+                try { task.cancel(true); } catch (final Exception ignore) { }
+                try { closer.accept(null); } catch (final Exception ignore) { }
+                task = getContext().getScheduledExecutorService().schedule(this::mainEndlessCycle, 3, TimeUnit.SECONDS);
+                return;
             }
 
             ILoggingEvent event;
@@ -139,7 +125,7 @@ public class LogdocTcpAppender extends LogdocBase {
             if (socket != null && socket.getInetAddress().isReachable(SOCKET_CHECK_TIMEOUT) && socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown())
                 return false;
 
-            socket = (Socket) connector.call();
+            socket = SocketFactory.getDefault().createSocket(InetAddress.getByName(host), port);
             daos = null;
             dais = null;
 
