@@ -10,7 +10,7 @@ import java.util.List;
  * 25.02.2021 13:19
  * logback-adapter ☭ sweat and blood
  */
-public class EmptyMultiplexer implements Multiplexer {
+public class KeepOriginalLines implements Multiplexer {
     @Override
     public List<String> apply(final String s) {
         return Collections.singletonList(s);

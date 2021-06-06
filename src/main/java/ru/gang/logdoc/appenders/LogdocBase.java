@@ -7,10 +7,9 @@ import ch.qos.logback.core.util.Duration;
 import ru.gang.logdoc.flaps.Timer;
 import ru.gang.logdoc.flaps.*;
 import ru.gang.logdoc.flaps.impl.*;
-import ru.gang.logdoc.flaps.impl.multiplexers.EmptyMultiplexer;
-import ru.gang.logdoc.flaps.impl.multiplexers.FixedStrLengthMultiplexer;
-import ru.gang.logdoc.flaps.impl.multiplexers.MaxStrLengthMultiplexer;
-import ru.gang.logdoc.flaps.impl.multiplexers.SimpleMultiplexer;
+import ru.gang.logdoc.flaps.impl.multiplexers.KeepOriginalLines;
+import ru.gang.logdoc.flaps.impl.multiplexers.SplitByLinebreaks;
+import ru.gang.logdoc.flaps.impl.multiplexers.SplitByMaxLength;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.Field;
 import ru.gang.logdoc.model.StaticPosFields;
@@ -42,7 +41,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     protected BlockingDeque<ILoggingEvent> deque;
 
     protected String host, login, password, token, prefix = "", suffix = "";
-    protected int port, queueSize = 128, retryDelay = 30000, stringTokenSize = 4, maxTokenSize = 10;
+    protected int port, queueSize = 128, retryDelay = 30000, stringTokenSize = 0;
     protected boolean skipTime = false, skipSource = false, skipLevel = false, multiline = true;
     protected byte[] tokenBytes = new byte[0];
     protected StaticPosFields staticPrefix = null, staticSuffix = null;
@@ -53,7 +52,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     protected Sourcer sourcer = new SimpleSourcer();
     protected Timer timer = new SimpleTimer();
     protected Leveler leveler = new SimpleLeveler();
-    protected Multiplexer multiplexer = new EmptyMultiplexer();
+    protected Multiplexer multiplexer = new KeepOriginalLines();
     protected Fielder fielder = new EmptyFielder();
     protected Cleaner cleaner = new EmptyCleaner();
 
@@ -118,10 +117,9 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             leveler = new EmptyLeveler();
 
         if (!multiline)
-            multiplexer = new SimpleMultiplexer();
+            multiplexer = new SplitByLinebreaks();
         else if (stringTokenSize > 0)
-            multiplexer = new FixedStrLengthMultiplexer(stringTokenSize);
-        else multiplexer = new MaxStrLengthMultiplexer(maxTokenSize);
+            multiplexer = new SplitByMaxLength(stringTokenSize);
 
         if (!sortedNames.isEmpty()) {
             final boolean pre = staticPrefix != null && !staticPrefix.getFields().isEmpty();

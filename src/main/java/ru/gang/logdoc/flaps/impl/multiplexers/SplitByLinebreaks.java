@@ -12,7 +12,7 @@ import java.util.List;
  * logback-adapter ☭ sweat and blood
  */
 //  <multiline>false</multiline> <!-- Should we keep multilined logs as is -->
-public class SimpleMultiplexer implements Multiplexer {
+public class SplitByLinebreaks implements Multiplexer {
     @Override
     public List<String> apply(final String s) {
         final String[] array = s.split("\\r?\\n");

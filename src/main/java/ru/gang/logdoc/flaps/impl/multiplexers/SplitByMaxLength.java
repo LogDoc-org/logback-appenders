@@ -13,11 +13,11 @@ import java.util.List;
 
 //  <multiline>true</multiline> <!-- Should we keep multilined logs as is -->
 //
-public class MaxStrLengthMultiplexer implements Multiplexer {
+public class SplitByMaxLength implements Multiplexer {
 
     private final int maxSize;
 
-    public MaxStrLengthMultiplexer(int maxSize) {
+    public SplitByMaxLength(int maxSize) {
         this.maxSize = maxSize;
     }
 
