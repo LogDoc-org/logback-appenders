@@ -12,12 +12,10 @@
         <!-- / -->
 
         <!-- In case when you use predefined config -->
-        <token/> <!--optional -->
-
 
         <!-- Optional tuning. Default values are predefined. Used only if token is missed -->
-        <prefix/> <!-- unconditional prefix for logger name (source) -->
-        <suffix/> <!-- unconditional suffix for logger name (source) -->
+        <prefix/> <!-- absolute prefix for logger name (source) -->
+        <suffix/> <!-- absolute suffix for logger name (source) -->
         <queueSize>128</queueSize>  <!-- Size of events caching queue -->
         <retryDelay>30000</retryDelay> <!-- Delay before reconnect -->
         <skipTime>false</skipTime> <!-- Should we skip local time-->

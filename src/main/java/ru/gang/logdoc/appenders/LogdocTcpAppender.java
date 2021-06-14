@@ -4,8 +4,10 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.StaticPosFields;
 
-import javax.net.SocketFactory;
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.List;
@@ -84,7 +86,7 @@ public class LogdocTcpAppender extends LogdocBase {
                     final List<String> strings = multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : ""));
                     for (int i = 0; i < strings.size(); i++) {
                         String part = strings.get(i);
-                        if (!multiline)
+                        if (multiline)
                             writePart(part, event, fields, daos);
                         else {
                             r.nextBytes(partialId);
@@ -125,23 +127,21 @@ public class LogdocTcpAppender extends LogdocBase {
             if (socket != null && socket.getInetAddress().isReachable(SOCKET_CHECK_TIMEOUT) && socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown())
                 return false;
 
-            socket = SocketFactory.getDefault().createSocket(InetAddress.getByName(host), port);
+            socket = new Socket(InetAddress.getByName(host), port);
             daos = null;
             dais = null;
 
-            if (socket != null) {
+            if (socket.isConnected()) {
                 dais = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
                 daos = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
 
-                if (tokenBytes.length < 15) {
+                if (tokenBytes.length < 16) {
                     askToken(daos);
                     daos.flush();
 
-                    if (dais.readByte() != header[0] || dais.readByte() != header[1])
-                        throw new IOException("Wrong header");
-
                     readToken(dais);
-                }
+                } else
+                    writeToken(daos);
 
                 return false;
             }
@@ -184,14 +184,6 @@ public class LogdocTcpAppender extends LogdocBase {
 
     public void setPassword(final String password) {
         this.password = password;
-    }
-
-    public String getToken() {
-        return token;
-    }
-
-    public void setToken(final String token) {
-        this.token = token;
     }
 
     public String getPrefix() {
@@ -302,7 +294,7 @@ public class LogdocTcpAppender extends LogdocBase {
         return stringTokenSize;
     }
 
-    public void setDynamicFields(final Integer stringTokenSize) {
+    public void setStringTokenSize(final Integer stringTokenSize) {
         this.stringTokenSize = stringTokenSize != null ? stringTokenSize : -1;
     }
 }

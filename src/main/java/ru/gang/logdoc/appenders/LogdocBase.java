@@ -217,16 +217,14 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             writeUtf(fieldName, daos);
     }
 
-    protected void askConfig(final DataOutputStream daos) throws IOException {
+    protected void writeToken(final DataOutputStream daos) throws IOException {
         daos.write(header);
         daos.writeByte(BinMsg.AppendersRequestConfig.ordinal());
         daos.write(tokenBytes);
     }
 
     protected void writePart(final String part, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
-        daos.write(header);
         daos.writeByte(BinMsg.LogEvent.ordinal());
-        daos.write(tokenBytes);
         writeUtf(timer.apply(event.getTimeStamp()), daos);
         writeUtf(rtId, daos);
         writeUtf(sourcer.apply(event.getLoggerName()), daos);
@@ -243,7 +241,6 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                              final int partialIndex, final byte[] partialId,
                              final ILoggingEvent event, final Map<String, String> fields,
                              final DataOutputStream daos) throws IOException {
-        daos.write(header);
         daos.writeByte(BinMsg.LogEventCompose.ordinal());
         daos.write(tokenBytes);
         writeUtf(timer.apply(event.getTimeStamp()), daos);
