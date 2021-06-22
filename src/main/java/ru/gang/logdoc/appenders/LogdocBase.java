@@ -13,7 +13,7 @@ import ru.gang.logdoc.flaps.impl.multiplexers.SplitByMaxLength;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.Field;
 import ru.gang.logdoc.model.StaticPosFields;
-import ru.gang.logdoc.structs.enums.BinMsg;
+import ru.gang.logdoc.protocol.AppProto;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -184,7 +184,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
     protected void readToken(final DataInputStream dais) throws IOException {
         final short response = dais.readByte();
-        if (response == BinMsg.NettyTokenResponse.ordinal()) {
+        if (response == AppProto.NettyTokenResponse.ordinal()) {
             tokenBytes = new byte[16];
 
             dais.readFully(tokenBytes);
@@ -205,7 +205,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
     protected void askToken(final DataOutputStream daos) throws IOException {
         daos.write(header);
-        daos.writeByte(BinMsg.AppendersRequestToken.ordinal());
+        daos.writeByte(AppProto.AppendersRequestToken.ordinal());
         writeUtf(login == null ? "" : login, daos);
         writeUtf(password == null ? "" : password, daos);
         daos.writeBoolean(skipTime);
@@ -219,12 +219,12 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
     protected void writeToken(final DataOutputStream daos) throws IOException {
         daos.write(header);
-        daos.writeByte(BinMsg.AppendersRequestConfig.ordinal());
+        daos.writeByte(AppProto.AppendersRequestConfig.ordinal());
         daos.write(tokenBytes);
     }
 
     protected void writePart(final String part, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
-        daos.writeByte(BinMsg.LogEvent.ordinal());
+        daos.writeByte(AppProto.LogEvent.ordinal());
         writeUtf(timer.apply(event.getTimeStamp()), daos);
         writeUtf(rtId, daos);
         writeUtf(sourcer.apply(event.getLoggerName()), daos);
@@ -241,8 +241,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                              final int partialIndex, final byte[] partialId,
                              final ILoggingEvent event, final Map<String, String> fields,
                              final DataOutputStream daos) throws IOException {
-        daos.writeByte(BinMsg.LogEventCompose.ordinal());
-        daos.write(tokenBytes);
+        daos.writeByte(AppProto.LogEventCompose.ordinal());
         writeUtf(timer.apply(event.getTimeStamp()), daos);
         writeUtf(rtId, daos);
         writeUtf(sourcer.apply(event.getLoggerName()), daos);

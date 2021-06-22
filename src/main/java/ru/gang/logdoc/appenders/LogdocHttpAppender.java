@@ -3,7 +3,7 @@ package ru.gang.logdoc.appenders;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.StaticPosFields;
-import ru.gang.logdoc.structs.enums.BinMsg;
+import ru.gang.logdoc.protocol.AppProto;
 import ru.gang.logdoc.utils.Httper;
 
 import java.io.DataInputStream;
@@ -58,7 +58,7 @@ public class LogdocHttpAppender extends LogdocBase {
 
                 try {
                     if (tokenBytes.length < 16) {
-                        headers.put(CmdHeader, BinMsg.AppendersRequestToken.name());
+                        headers.put(CmdHeader, AppProto.AppendersRequestToken.name());
 
                         httper.execute(url, headers,
                                 os -> {
@@ -83,7 +83,7 @@ public class LogdocHttpAppender extends LogdocBase {
                         continue;
                     }
 
-                    headers.put(CmdHeader, BinMsg.LogEvent.name());
+                    headers.put(CmdHeader, AppProto.LogEvent.name());
                     headers.put(TokenHeader, token);
 
                     final String msg = event.getFormattedMessage();

@@ -3,7 +3,7 @@ package ru.gang.logdoc.appenders;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ru.gang.logdoc.model.DynamicPosFields;
 import ru.gang.logdoc.model.StaticPosFields;
-import ru.gang.logdoc.structs.enums.BinMsg;
+import ru.gang.logdoc.protocol.AppProto;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -59,7 +59,7 @@ public class LogdocUdpAppender extends LogdocBase {
                             datagramSocket.receive(reply);
                             final ByteBuffer buffer = ByteBuffer.wrap(reply.getData());
 
-                            if (buffer.get() != header[0] || buffer.get() != header[1] || buffer.get() != BinMsg.NettyTokenResponse.ordinal())
+                            if (buffer.get() != header[0] || buffer.get() != header[1] || buffer.get() != AppProto.NettyTokenResponse.ordinal())
                                 throw new IOException("Wrong header");
 
                             tokenBytes = new byte[16];
