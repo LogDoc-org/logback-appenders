@@ -86,7 +86,7 @@ public class LogdocTcpAppender extends LogdocBase {
                     final List<String> strings = multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : ""));
                     for (int i = 0; i < strings.size(); i++) {
                         String part = strings.get(i);
-                        if (multiline)
+                        if (stringTokenSize == 0)
                             writePart(part, event, fields, daos);
                         else {
                             r.nextBytes(partialId);
