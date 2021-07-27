@@ -224,6 +224,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     }
 
     protected void writePart(final String part, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
+        daos.write(header);
         daos.writeByte(AppProto.LogEvent.ordinal());
         writeUtf(timer.apply(event.getTimeStamp()), daos);
         writeUtf(rtId, daos);
@@ -241,6 +242,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                              final int partialIndex, final byte[] partialId,
                              final ILoggingEvent event, final Map<String, String> fields,
                              final DataOutputStream daos) throws IOException {
+        daos.write(header);
         daos.writeByte(AppProto.LogEventCompose.ordinal());
         writeUtf(timer.apply(event.getTimeStamp()), daos);
         writeUtf(rtId, daos);

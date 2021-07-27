@@ -84,17 +84,19 @@ public class LogdocTcpAppender extends LogdocBase {
                     final Map<String, String> fields = fielder.apply(msg);
 
                     final List<String> strings = multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : ""));
-                    for (int i = 0; i < strings.size(); i++) {
-                        String part = strings.get(i);
-                        if (stringTokenSize == 0)
-                            writePart(part, event, fields, daos);
-                        else {
+                    if (strings.size() == 1)
+                        writePart(strings.get(0), event, fields, daos);
+                    else if (stringTokenSize > 0)
+                        for (int i = 0; i < strings.size(); i++) {
+                            String part = strings.get(i);
                             r.nextBytes(partialId);
                             writePart(part, strings.size(),
                                     strings.size() == 0 ? 0 : (stringTokenSize * strings.size()) - 1, partialId,
                                     event, fields, daos);
                         }
-                    }
+                    else
+                        for (String part : strings)
+                            writePart(part, event, fields, daos);
 
                     if (deque.isEmpty())
                         daos.flush();
