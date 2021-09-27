@@ -162,6 +162,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     private void writeComplexPair(final String key, final String value, final DataOutputStream daos) throws IOException {
         final byte[] v = value.getBytes(StandardCharsets.UTF_8);
         daos.write(key.getBytes(StandardCharsets.UTF_8));
+        daos.write(LogDoc.EndOfMessage);
         daos.writeLong(v.length);
         daos.write(v);
         daos.write(LogDoc.EndOfMessage);

@@ -9,7 +9,7 @@ public interface LogDoc {
     char EndOfMessage = 0x03;
     char NextPacket = 0x30;
     char Escape = 0x27;
-    char Equal = '-';
+    char Equal = '=';
 
     String FieldTimeStamp = "stm";
     String FieldProcessId = "pid";
