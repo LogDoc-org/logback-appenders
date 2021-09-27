@@ -99,7 +99,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                 fields.clear();
                 msg = new StringBuilder(event.getFormattedMessage());
 
-                if ((sepIdx = msg.toString().indexOf(LogDoc.EndOfMessage)) != -1) {
+                if ((sepIdx = msg.toString().indexOf(LogDoc.FieldSeparator)) != -1) {
                     final byte[] fld = msg.substring(sepIdx + 1).getBytes(StandardCharsets.UTF_8);
                     msg.delete(sepIdx, msg.length());
                     key.set("");
@@ -108,7 +108,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                     for (int i = 0; i < fld.length; i++) {
                         if (fld[i] == LogDoc.Equal) {
                             filler = b -> value.updateAndGet(v -> v + (char) b.byteValue());
-                        } else if (fld[i] == LogDoc.EndOfMessage && i > 0 && fld[i - 1] != LogDoc.Escape) {
+                        } else if (fld[i] == LogDoc.FieldSeparator && i > 0 && fld[i - 1] != LogDoc.Escape) {
                             if (!isEmpty(key.get()) && !isEmpty(value.get()))
                                 fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
 
@@ -117,7 +117,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                             filler.accept(fld[i]);
                     }
 
-                    if (fld[fld.length - 1] != LogDoc.EndOfMessage && !isEmpty(key.get()) && !isEmpty(value.get()))
+                    if (fld[fld.length - 1] != LogDoc.FieldSeparator && !isEmpty(key.get()) && !isEmpty(value.get()))
                         fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
                 }
 
@@ -153,7 +153,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     }
 
     private void writePair(final String key, final String value, final DataOutputStream daos) throws IOException {
-        if (value.indexOf(LogDoc.EndOfMessage) != -1)
+        if (value.indexOf(LogDoc.FieldSeparator) != -1)
             writeComplexPair(key, value, daos);
         else
             writeSimplePart(key, value, daos);
@@ -162,16 +162,16 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     private void writeComplexPair(final String key, final String value, final DataOutputStream daos) throws IOException {
         final byte[] v = value.getBytes(StandardCharsets.UTF_8);
         daos.write(key.getBytes(StandardCharsets.UTF_8));
-        daos.write(LogDoc.EndOfMessage);
+        daos.write(LogDoc.FieldSeparator);
         daos.writeLong(v.length);
         daos.write(v);
-        daos.write(LogDoc.EndOfMessage);
+        daos.write(LogDoc.FieldSeparator);
     }
 
     private void writeSimplePart(final String key, final String value, final DataOutputStream daos) throws IOException {
         daos.write(key.getBytes(StandardCharsets.UTF_8));
         daos.write('=');
         daos.write(value.getBytes(StandardCharsets.UTF_8));
-        daos.write(LogDoc.EndOfMessage);
+        daos.write(LogDoc.FieldSeparator);
     }
 }
