@@ -1,17 +1,8 @@
 package ru.gang.logdoc.appenders;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ru.gang.logdoc.model.DynamicPosFields;
-import ru.gang.logdoc.model.StaticPosFields;
-
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -64,7 +55,6 @@ public class LogdocTcpAppender extends LogdocBase {
         return true;
     }
 
-    @SuppressWarnings({"ConstantConditions"})
     private void mainEndlessCycle() {
         addInfo("Главный цикл аппендера (пере-)запущен");
 
@@ -77,38 +67,7 @@ public class LogdocTcpAppender extends LogdocBase {
                 return;
             }
 
-            ILoggingEvent event;
-            while ((event = deque.takeFirst()) != null) {
-                try {
-                    final String msg = event.getFormattedMessage();
-                    final Map<String, String> fields = fielder.apply(msg);
-
-                    final List<String> strings = multiplexer.apply(cleaner.apply(msg) + (event.getThrowableProxy() != null ? "\n" + tpc.convert(event) : ""));
-                    if (strings.size() == 1)
-                        writePart(strings.get(0), event, fields, daos);
-                    else if (stringTokenSize > 0)
-                        for (int i = 0; i < strings.size(); i++) {
-                            String part = strings.get(i);
-                            r.nextBytes(partialId);
-                            writePart(part, strings.size(),
-                                    strings.size() == 0 ? 0 : (stringTokenSize * strings.size()) - 1, partialId,
-                                    event, fields, daos);
-                        }
-                    else
-                        for (String part : strings)
-                            writePart(part, event, fields, daos);
-
-                    if (deque.isEmpty())
-                        daos.flush();
-                } catch (Exception e) {
-                    addError(e.getMessage(), e);
-                    if (!deque.offerFirst(event))
-                        addInfo("Не можем положить событие обратно в очередь - она заполнена.");
-
-                    throw e;
-                }
-            }
-
+            rollQueue();
             daos.flush();
         } catch (final InterruptedException e0) {
             closer.accept(null);
@@ -124,6 +83,17 @@ public class LogdocTcpAppender extends LogdocBase {
         addInfo("Главный цикл аппендера остановлен");
     }
 
+    @Override
+    protected DataOutputStream getDOS() {
+        return daos;
+    }
+
+    @Override
+    protected void rolledCycle() throws IOException {
+        if (deque.isEmpty())
+            daos.flush();
+    }
+
     private boolean socketFails() {
         try {
             if (socket != null && socket.getInetAddress().isReachable(SOCKET_CHECK_TIMEOUT) && socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown())
@@ -136,14 +106,6 @@ public class LogdocTcpAppender extends LogdocBase {
             if (socket.isConnected()) {
                 dais = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
                 daos = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
-
-                if (tokenBytes.length < 16) {
-                    askToken(daos);
-                    daos.flush();
-
-                    readToken(dais);
-                } else
-                    writeToken(daos);
 
                 return false;
             }
@@ -170,22 +132,6 @@ public class LogdocTcpAppender extends LogdocBase {
 
     public void setHost(final String host) {
         this.host = host;
-    }
-
-    public String getLogin() {
-        return login;
-    }
-
-    public void setLogin(final String login) {
-        this.login = login;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(final String password) {
-        this.password = password;
     }
 
     public String getPrefix() {
@@ -218,85 +164,5 @@ public class LogdocTcpAppender extends LogdocBase {
 
     public void setQueueSize(final int queueSize) {
         this.queueSize = queueSize;
-    }
-
-    public int getRetryDelay() {
-        return retryDelay;
-    }
-
-    public void setRetryDelay(final int retryDelay) {
-        this.retryDelay = retryDelay;
-    }
-
-    public boolean isSkipTime() {
-        return skipTime;
-    }
-
-    public void setSkipTime(final boolean skipTime) {
-        this.skipTime = skipTime;
-    }
-
-    public boolean isSkipSource() {
-        return skipSource;
-    }
-
-    public void setSkipSource(final boolean skipSource) {
-        this.skipSource = skipSource;
-    }
-
-    public boolean isSkipLevel() {
-        return skipLevel;
-    }
-
-    public void setSkipLevel(final boolean skipLevel) {
-        this.skipLevel = skipLevel;
-    }
-
-    public boolean isMultiline() {
-        return multiline;
-    }
-
-    public void setMultiline(final boolean multiline) {
-        this.multiline = multiline;
-    }
-
-    public byte[] getTokenBytes() {
-        return tokenBytes;
-    }
-
-    public void setTokenBytes(final byte[] tokenBytes) {
-        this.tokenBytes = tokenBytes;
-    }
-
-    public StaticPosFields getStaticPrefix() {
-        return staticPrefix;
-    }
-
-    public void setStaticPrefix(final StaticPosFields staticPrefix) {
-        this.staticPrefix = staticPrefix;
-    }
-
-    public StaticPosFields getStaticSuffix() {
-        return staticSuffix;
-    }
-
-    public void setStaticSuffix(final StaticPosFields staticSuffix) {
-        this.staticSuffix = staticSuffix;
-    }
-
-    public DynamicPosFields getDynamicFields() {
-        return dynamicFields;
-    }
-
-    public void setDynamicFields(final DynamicPosFields dynamicFields) {
-        this.dynamicFields = dynamicFields;
-    }
-
-    public int getStringTokenSize() {
-        return stringTokenSize;
-    }
-
-    public void setStringTokenSize(final Integer stringTokenSize) {
-        this.stringTokenSize = stringTokenSize != null ? stringTokenSize : -1;
     }
 }

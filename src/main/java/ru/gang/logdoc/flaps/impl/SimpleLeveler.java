@@ -12,22 +12,22 @@ import java.util.Map;
  * logback-adapter ☭ sweat and blood
  */
 public class SimpleLeveler implements Leveler {
-    private final Map<Level, Byte> matchMap;
+    private final Map<Level, String> matchMap;
 
     public SimpleLeveler() {
         matchMap = new HashMap<>(LDLevel.values().length);
 
-        matchMap.put(Level.DEBUG, (byte) LDLevel.DEBUG.ordinal());
-        matchMap.put(Level.ERROR, (byte) LDLevel.ERROR.ordinal());
-        matchMap.put(Level.TRACE, (byte) LDLevel.LOG.ordinal());
-        matchMap.put(Level.INFO, (byte) LDLevel.INFO.ordinal());
-        matchMap.put(Level.WARN, (byte) LDLevel.WARN.ordinal());
-        matchMap.put(Level.ALL, (byte) LDLevel.LOG.ordinal());
-        matchMap.put(Level.OFF, (byte) LDLevel.LOG.ordinal());
+        matchMap.put(Level.DEBUG, LDLevel.DEBUG.name());
+        matchMap.put(Level.ERROR, LDLevel.ERROR.name());
+        matchMap.put(Level.TRACE, LDLevel.LOG.name());
+        matchMap.put(Level.INFO, LDLevel.INFO.name());
+        matchMap.put(Level.WARN, LDLevel.WARN.name());
+        matchMap.put(Level.ALL, LDLevel.LOG.name());
+        matchMap.put(Level.OFF, LDLevel.LOG.name());
     }
 
     @Override
-    public Byte apply(final Level level) {
+    public String apply(final Level level) {
         return matchMap.get(level);
     }
 }

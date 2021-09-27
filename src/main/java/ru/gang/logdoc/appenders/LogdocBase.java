@@ -3,29 +3,24 @@ package ru.gang.logdoc.appenders;
 import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
-import ch.qos.logback.core.util.Duration;
+import ru.gang.logdoc.flaps.Leveler;
+import ru.gang.logdoc.flaps.Sourcer;
 import ru.gang.logdoc.flaps.Timer;
-import ru.gang.logdoc.flaps.*;
 import ru.gang.logdoc.flaps.impl.*;
-import ru.gang.logdoc.flaps.impl.multiplexers.KeepOriginalLines;
-import ru.gang.logdoc.flaps.impl.multiplexers.SplitByLinebreaks;
-import ru.gang.logdoc.flaps.impl.multiplexers.SplitByMaxLength;
-import ru.gang.logdoc.model.DynamicPosFields;
-import ru.gang.logdoc.model.Field;
-import ru.gang.logdoc.model.StaticPosFields;
-import ru.gang.logdoc.protocol.AppProto;
+import ru.gang.logdoc.utils.LogDoc;
 
-import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+
+import static ru.gang.logdoc.structs.utils.Tools.isEmpty;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -33,28 +28,18 @@ import java.util.stream.Collectors;
  * logback-adapter ☭ sweat and blood
  */
 abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
-    protected static final Duration eventDelayLimit = new Duration(100);
     protected static final String rtId = ManagementFactory.getRuntimeMXBean().getName();
-    protected static final byte[] header = new byte[]{(byte) 6, (byte) 3};
 
     protected final ThrowableProxyConverter tpc = new ThrowableProxyConverter();
     protected BlockingDeque<ILoggingEvent> deque;
 
-    protected String host, login, password, token, prefix = "", suffix = "";
-    protected int port, queueSize = 128, retryDelay = 30000, stringTokenSize = 0;
-    protected boolean skipTime = false, skipSource = false, skipLevel = false, multiline = true;
-    protected byte[] tokenBytes = new byte[0];
-    protected StaticPosFields staticPrefix = null, staticSuffix = null;
-    protected DynamicPosFields dynamicFields = null;
-    protected final SortedSet<String> sortedNames = new TreeSet<>();
+    protected String host, prefix = "", suffix = "";
+    protected int port, queueSize = 128;
 
     /* flaps */
     protected Sourcer sourcer = new SimpleSourcer();
     protected Timer timer = new SimpleTimer();
     protected Leveler leveler = new SimpleLeveler();
-    protected Multiplexer multiplexer = new KeepOriginalLines();
-    protected Fielder fielder = new EmptyFielder();
-    protected Cleaner cleaner = new EmptyCleaner();
 
     @Override
     public void start() {
@@ -78,88 +63,12 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             addError("Queue size must be greater than zero");
         }
 
-        if (errorCount == 0) {
-            if (staticPrefix != null)
-                sortedNames.addAll(staticPrefix.getFields().stream().filter(Objects::nonNull).map(Field::getFieldName).collect(Collectors.toList()));
-
-            if (staticSuffix != null)
-                sortedNames.addAll(staticSuffix.getFields().stream().filter(Objects::nonNull).map(Field::getFieldName).collect(Collectors.toList()));
-
-            if (dynamicFields != null)
-                sortedNames.addAll(dynamicFields.getFields().stream().filter(Objects::nonNull).map(Field::getFieldName).collect(Collectors.toList()));
-        }
-
-        if (token != null && !token.trim().isEmpty()) {
-            final UUID uuid = UUID.fromString(token);
-            final ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-
-            bb.putLong(uuid.getMostSignificantBits());
-            bb.putLong(uuid.getLeastSignificantBits());
-
-            tokenBytes = bb.array();
-        }
-
-        if (skipSource)
-            sourcer = new EmptySourcer();
-        else {
-            if (!prefix.isEmpty() && !suffix.isEmpty())
-                sourcer = new SourcerBoth(prefix, suffix);
-            else if (!prefix.isEmpty())
-                sourcer = new PreSourcer(prefix);
-            else if (!suffix.isEmpty())
-                sourcer = new PostSourcer(suffix);
-        }
-
-        if (skipTime)
-            timer = new EmptyTimer();
-
-        if (skipLevel)
-            leveler = new EmptyLeveler();
-
-        if (!multiline)
-            multiplexer = new SplitByLinebreaks();
-        else if (stringTokenSize > 0)
-            multiplexer = new SplitByMaxLength(stringTokenSize);
-
-        if (!sortedNames.isEmpty()) {
-            final boolean pre = staticPrefix != null && !staticPrefix.getFields().isEmpty();
-            final boolean post = staticSuffix != null && !staticSuffix.getFields().isEmpty();
-            final boolean dyn = dynamicFields != null && !dynamicFields.getFields().isEmpty();
-
-            if (pre && post && dyn)
-                fielder = new PreDynPostFielder(staticPrefix, dynamicFields, staticSuffix);
-            else if (pre && dyn)
-                fielder = new PreDynFielder(staticPrefix, dynamicFields);
-            else if (pre && post)
-                fielder = new PrePostFielder(staticPrefix, staticSuffix);
-            else if (dyn && post)
-                fielder = new DynPostFielder(dynamicFields, staticSuffix);
-            else if (pre)
-                fielder = new PreFielder(staticPrefix);
-            else if (dyn)
-                fielder = new DynFielder(dynamicFields);
-            else if (post)
-                fielder = new PostFielder(staticSuffix);
-
-            final boolean cpre = pre && staticPrefix.getClear();
-            final boolean cdyn = dyn && (dynamicFields.isClearValues() || dynamicFields.isClearMarks());
-            final boolean cpost = post && staticSuffix.getClear();
-
-            if (cpre && cdyn && cpost)
-                cleaner = new PreDynPostCleaner(staticPrefix, dynamicFields, staticSuffix);
-            else if (cpre && cdyn)
-                cleaner = new PreDynCleaner(staticPrefix, dynamicFields);
-            else if (cpre && cpost)
-                cleaner = new PrePostCleaner(staticPrefix, staticSuffix);
-            else if (cdyn && cpost)
-                cleaner = new DynPostCleaner(dynamicFields, staticSuffix);
-            else if (cpre)
-                cleaner = new PreCleaner(staticPrefix);
-            else if (cdyn)
-                cleaner = new DynCleaner(dynamicFields);
-            else if (cpost)
-                cleaner = new PostCleaner(staticSuffix);
-        }
+        if (!prefix.isEmpty() && !suffix.isEmpty())
+            sourcer = new SourcerBoth(prefix, suffix);
+        else if (!prefix.isEmpty())
+            sourcer = new PreSourcer(prefix);
+        else if (!suffix.isEmpty())
+            sourcer = new PostSourcer(suffix);
 
         if (errorCount == 0 && subStart()) {
             deque = new LinkedBlockingDeque<>(Math.max(queueSize, 1));
@@ -174,92 +83,97 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         if (event == null || !isStarted())
             return;
 
-        try {
-            if (!deque.offer(event, eventDelayLimit.getMilliseconds(), TimeUnit.MILLISECONDS))
-                addWarn("Dropping event due to timeout limit of [" + eventDelayLimit + "] being exceeded");
-        } catch (InterruptedException e) {
-            addError("Interrupted while appending event to SocketAppender: " + e.getMessage(), e);
-        }
+        if (!deque.offer(event))
+            addWarn("Message queue is overflowed, last message is dropped");
     }
 
-    protected void readToken(final DataInputStream dais) throws IOException {
-        final short response = dais.readByte();
-        if (response == AppProto.NettyTokenResponse.ordinal()) {
-            tokenBytes = new byte[16];
+    @SuppressWarnings("ConstantConditions")
+    protected void rollQueue() throws IOException, InterruptedException {
+        ILoggingEvent event;
+        StringBuilder msg;
+        final AtomicReference<String> key = new AtomicReference<>(), value = new AtomicReference<>();
+        int sepIdx;
+        final Map<String, String> fields = new HashMap<>(0);
+        while ((event = deque.takeFirst()) != null) {
+            try {
+                fields.clear();
+                msg = new StringBuilder(event.getFormattedMessage());
 
-            dais.readFully(tokenBytes);
+                if ((sepIdx = msg.toString().indexOf(LogDoc.EndOfMessage)) != -1) {
+                    final byte[] fld = msg.substring(sepIdx + 1).getBytes(StandardCharsets.UTF_8);
+                    msg.delete(sepIdx, msg.length());
+                    key.set("");
+                    Consumer<Byte> filler = b -> key.updateAndGet(v -> v + (char) b.byteValue());
 
-            final ByteBuffer bb = ByteBuffer.wrap(tokenBytes);
+                    for (int i = 0; i < fld.length; i++) {
+                        if (fld[i] == LogDoc.Equal) {
+                            filler = b -> value.updateAndGet(v -> v + (char) b.byteValue());
+                            continue;
+                        } else if (fld[i] == LogDoc.EndOfMessage) {
+                            if (i > 0 && fld[i - 1] != LogDoc.Escape) {
+                                if (!isEmpty(key.get()) && !isEmpty(value.get()))
+                                    fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
 
-            token = new UUID(bb.getLong(), bb.getLong()).toString();
-        } else {
-            String error = "Unknow error on server side";
-            if (dais.available() > 2)
-                try {
-                    error = dais.readUTF();
-                } catch (final Exception ignore) {
+                                filler = b -> key.updateAndGet(v -> v + (char) b.byteValue());
+                            }
+
+                            continue;
+                        }
+
+                        filler.accept(fld[i]);
+                    }
                 }
-            throw new IOException(error);
+
+                if (event.getThrowableProxy() != null)
+                    msg.append("\n").append(tpc.convert(event));
+
+                writeMsg(msg.toString(), event, fields, getDOS());
+                rolledCycle();
+            } catch (Exception e) {
+                addError(e.getMessage(), e);
+                if (!deque.offerFirst(event))
+                    addInfo("Не можем положить событие обратно в очередь - она заполнена.");
+
+                throw e;
+            }
         }
+
     }
 
-    protected void askToken(final DataOutputStream daos) throws IOException {
-        daos.write(header);
-        daos.writeByte(AppProto.AppendersRequestToken.ordinal());
-        writeUtf(login == null ? "" : login, daos);
-        writeUtf(password == null ? "" : password, daos);
-        daos.writeBoolean(skipTime);
-        daos.writeBoolean(skipSource);
-        daos.writeBoolean(skipLevel);
-        daos.writeBoolean(multiline);
-        daos.writeShort(sortedNames.size());
-        for (final String fieldName : sortedNames)
-            writeUtf(fieldName, daos);
+    protected abstract DataOutputStream getDOS();
+
+    protected abstract void rolledCycle() throws IOException;
+
+    private void writeMsg(final String part, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
+        daos.write((byte) LogDoc.NextPacket);
+        writePair(LogDoc.FieldTimeStamp, timer.apply(event.getTimeStamp()), daos);
+        writePair(LogDoc.FieldProcessId, rtId, daos);
+        writePair(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()), daos);
+        writePair(LogDoc.FieldLevel, leveler.apply(event.getLevel()), daos);
+        writePair(LogDoc.FieldMessage, part, daos);
+        for (final Map.Entry<String, String> entry : fields.entrySet())
+            writePair(entry.getKey(), entry.getValue(), daos);
     }
 
-    protected void writeToken(final DataOutputStream daos) throws IOException {
-        daos.write(header);
-        daos.writeByte(AppProto.AppendersRequestConfig.ordinal());
-        daos.write(tokenBytes);
+    private void writePair(final String key, final String value, final DataOutputStream daos) throws IOException {
+        if (value.indexOf(LogDoc.EndOfMessage) != -1)
+            writeComplexPair(key, value, daos);
+        else
+            writeSimplePart(key, value, daos);
     }
 
-    protected void writePart(final String part, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
-        daos.write(header);
-        daos.writeByte(AppProto.LogEvent.ordinal());
-        writeUtf(timer.apply(event.getTimeStamp()), daos);
-        writeUtf(rtId, daos);
-        writeUtf(sourcer.apply(event.getLoggerName()), daos);
-        daos.writeByte(leveler.apply(event.getLevel()));
-        daos.writeByte(0); // partial count
-        daos.writeByte(0); // partial index
-        writeUtf(part, daos);
-        daos.writeShort(sortedNames.size());
-        for (final String n : sortedNames)
-            writeUtf(fields.getOrDefault(n, ""), daos);
+    private void writeComplexPair(final String key, final String value, final DataOutputStream daos) throws IOException {
+        final byte[] v = value.getBytes(StandardCharsets.UTF_8);
+        daos.write(key.getBytes(StandardCharsets.UTF_8));
+        daos.writeLong(v.length);
+        daos.write(v);
+        daos.write(LogDoc.EndOfMessage);
     }
 
-    protected void writePart(final String part, final int partialCount,
-                             final int partialIndex, final byte[] partialId,
-                             final ILoggingEvent event, final Map<String, String> fields,
-                             final DataOutputStream daos) throws IOException {
-        daos.write(header);
-        daos.writeByte(AppProto.LogEventCompose.ordinal());
-        writeUtf(timer.apply(event.getTimeStamp()), daos);
-        writeUtf(rtId, daos);
-        writeUtf(sourcer.apply(event.getLoggerName()), daos);
-        daos.writeByte(leveler.apply(event.getLevel()));
-        daos.writeByte(partialCount); // partial count
-        daos.writeByte(partialIndex); // partial index
-        writeUtf(part, daos);
-        daos.write(partialId); // partial id
-        daos.writeShort(sortedNames.size());
-        for (final String n : sortedNames)
-            writeUtf(fields.getOrDefault(n, ""), daos);
-    }
-
-    protected void writeUtf(final String s, final DataOutputStream os) throws IOException {
-        final byte[] a = s.getBytes(StandardCharsets.UTF_8);
-        os.writeShort(a.length);
-        os.write(a);
+    private void writeSimplePart(final String key, final String value, final DataOutputStream daos) throws IOException {
+        daos.write(key.getBytes(StandardCharsets.UTF_8));
+        daos.write('=');
+        daos.write(value.getBytes(StandardCharsets.UTF_8));
+        daos.write(LogDoc.EndOfMessage);
     }
 }

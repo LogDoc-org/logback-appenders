@@ -9,6 +9,6 @@ import java.util.function.Function;
  * 25.02.2021 13:06
  * logback-adapter ☭ sweat and blood
  */
-public interface Leveler extends Function<Level, Byte> {
+public interface Leveler extends Function<Level, String> {
     enum LDLevel {DEBUG, INFO, LOG, WARN, ERROR, SEVERE}
 }
