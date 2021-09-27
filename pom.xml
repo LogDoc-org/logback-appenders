@@ -6,7 +6,7 @@
 
     <groupId>logdoc</groupId>
     <artifactId>logback-appender</artifactId>
-    <version>0.0.66</version>
+    <version>0.0.67</version>
 
     <name>logdoc-logback-appender</name>
 

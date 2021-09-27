@@ -108,20 +108,17 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                     for (int i = 0; i < fld.length; i++) {
                         if (fld[i] == LogDoc.Equal) {
                             filler = b -> value.updateAndGet(v -> v + (char) b.byteValue());
-                            continue;
-                        } else if (fld[i] == LogDoc.EndOfMessage) {
-                            if (i > 0 && fld[i - 1] != LogDoc.Escape) {
-                                if (!isEmpty(key.get()) && !isEmpty(value.get()))
-                                    fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
+                        } else if (fld[i] == LogDoc.EndOfMessage && i > 0 && fld[i - 1] != LogDoc.Escape) {
+                            if (!isEmpty(key.get()) && !isEmpty(value.get()))
+                                fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
 
-                                filler = b -> key.updateAndGet(v -> v + (char) b.byteValue());
-                            }
-
-                            continue;
-                        }
-
-                        filler.accept(fld[i]);
+                            filler = b -> key.updateAndGet(v -> v + (char) b.byteValue());
+                        } else
+                            filler.accept(fld[i]);
                     }
+
+                    if (fld[fld.length - 1] != LogDoc.EndOfMessage && !isEmpty(key.get()) && !isEmpty(value.get()))
+                        fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
                 }
 
                 if (event.getThrowableProxy() != null)
@@ -144,13 +141,13 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
     protected abstract void rolledCycle() throws IOException;
 
-    private void writeMsg(final String part, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
+    private void writeMsg(final String msg, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
         daos.write((byte) LogDoc.NextPacket);
         writePair(LogDoc.FieldTimeStamp, timer.apply(event.getTimeStamp()), daos);
         writePair(LogDoc.FieldProcessId, rtId, daos);
         writePair(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()), daos);
         writePair(LogDoc.FieldLevel, leveler.apply(event.getLevel()), daos);
-        writePair(LogDoc.FieldMessage, part, daos);
+        writePair(LogDoc.FieldMessage, msg, daos);
         for (final Map.Entry<String, String> entry : fields.entrySet())
             writePair(entry.getKey(), entry.getValue(), daos);
     }
