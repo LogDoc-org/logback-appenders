@@ -150,6 +150,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         writePair(LogDoc.FieldMessage, msg, daos);
         for (final Map.Entry<String, String> entry : fields.entrySet())
             writePair(entry.getKey(), entry.getValue(), daos);
+        daos.write((byte) LogDoc.NextPacket);
     }
 
     private void writePair(final String key, final String value, final DataOutputStream daos) throws IOException {
