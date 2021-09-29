@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static ru.gang.logdoc.structs.utils.Tools.isEmpty;
+import static ru.gang.logdoc.structs.utils.Tools.notNull;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -97,7 +98,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         while ((event = deque.takeFirst()) != null) {
             try {
                 fields.clear();
-                msg = new StringBuilder(event.getFormattedMessage());
+                msg = new StringBuilder(notNull(event.getFormattedMessage()));
 
                 if ((sepIdx = msg.toString().indexOf(LogDoc.FieldSeparator)) != -1) {
                     final byte[] fld = msg.substring(sepIdx + 1).getBytes(StandardCharsets.UTF_8);
@@ -150,7 +151,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         writePair(LogDoc.FieldMessage, msg, daos);
         for (final Map.Entry<String, String> entry : fields.entrySet())
             writePair(entry.getKey(), entry.getValue(), daos);
-        daos.write((byte) LogDoc.NextPacket);
+        daos.write((byte) LogDoc.EndOfPacket);
     }
 
     private void writePair(final String key, final String value, final DataOutputStream daos) throws IOException {
