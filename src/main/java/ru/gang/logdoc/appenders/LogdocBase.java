@@ -169,7 +169,6 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         daos.write('\n');
         daos.writeLong(v.length);
         daos.write(v);
-        daos.write('\n');
     }
 
     private void writeSimplePart(final String key, final String value, final DataOutputStream daos) throws IOException {
