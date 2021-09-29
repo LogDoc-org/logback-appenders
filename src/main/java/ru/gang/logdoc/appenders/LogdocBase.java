@@ -3,11 +3,11 @@ package ru.gang.logdoc.appenders;
 import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
+import ru.gang.logdoc.LogDoc;
 import ru.gang.logdoc.flaps.Leveler;
 import ru.gang.logdoc.flaps.Sourcer;
 import ru.gang.logdoc.flaps.Timer;
 import ru.gang.logdoc.flaps.impl.*;
-import ru.gang.logdoc.utils.LogDoc;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
