@@ -3,11 +3,10 @@ package ru.gang.logdoc.flaps.impl;
 import ru.gang.logdoc.flaps.Timer;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 
-import static ru.gang.logdoc.structs.utils.Tools.logTimeFormat;
+import static ru.gang.logdoc.utils.Tools.logTimeFormat;
+
 
 /**
  * @author Denis Danilin | denis@danilin.name

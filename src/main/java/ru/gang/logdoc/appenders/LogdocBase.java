@@ -13,15 +13,15 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
-import static ru.gang.logdoc.structs.utils.Tools.isEmpty;
-import static ru.gang.logdoc.structs.utils.Tools.notNull;
+import static ru.gang.logdoc.utils.Tools.isEmpty;
+import static ru.gang.logdoc.utils.Tools.notNull;
+
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -92,40 +92,44 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     protected void rollQueue() throws IOException, InterruptedException {
         ILoggingEvent event;
         StringBuilder msg;
-        final AtomicReference<String> key = new AtomicReference<>(), value = new AtomicReference<>();
         int sepIdx;
         final Map<String, String> fields = new HashMap<>(0);
+        String rawFields = null;
+
         while ((event = deque.takeFirst()) != null) {
             try {
                 fields.clear();
                 msg = new StringBuilder(notNull(event.getFormattedMessage()));
 
-                if ((sepIdx = msg.toString().indexOf(LogDoc.FieldSeparator)) != -1) {
-                    final byte[] fld = msg.substring(sepIdx + 1).getBytes(StandardCharsets.UTF_8);
-                    msg.delete(sepIdx, msg.length());
-                    key.set("");
-                    Consumer<Byte> filler = b -> key.updateAndGet(v -> v + (char) b.byteValue());
+                if ((sepIdx = msg.toString().indexOf('\r')) != -1) {
+                    rawFields = msg.substring(sepIdx + 1);
 
-                    for (int i = 0; i < fld.length; i++) {
-                        if (fld[i] == LogDoc.Equal) {
-                            filler = b -> value.updateAndGet(v -> v + (char) b.byteValue());
-                        } else if (fld[i] == LogDoc.FieldSeparator && i > 0 && fld[i - 1] != LogDoc.Escape) {
-                            if (!isEmpty(key.get()) && !isEmpty(value.get()))
-                                fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
-
-                            filler = b -> key.updateAndGet(v -> v + (char) b.byteValue());
-                        } else
-                            filler.accept(fld[i]);
-                    }
-
-                    if (fld[fld.length - 1] != LogDoc.FieldSeparator && !isEmpty(key.get()) && !isEmpty(value.get()))
-                        fields.put(LogDoc.controls.contains(key.get()) ? key.get() + "_" : key.get(), value.get());
+                    if (rawFields.indexOf('=') != -1)
+                        msg.delete(sepIdx, msg.length());
+                    else
+                        rawFields = null;
                 }
 
                 if (event.getThrowableProxy() != null)
                     msg.append("\n").append(tpc.convert(event));
 
-                writeMsg(msg.toString(), event, fields, getDOS());
+                fields.put(LogDoc.FieldMessage, msg.toString());
+
+                if (rawFields != null)
+                    Arrays.stream(rawFields.split("\r"))
+                            .filter(p -> p.indexOf('=') != -1)
+                            .forEach(p -> {
+                                final String[] parts = p.split("=");
+
+                                final String fName = notNull(parts[0]).replaceAll("[^a-zA-Z0-9_]", "");
+
+                                if (isEmpty(fName) || fName.charAt(0) == '_' || Character.isDigit(fName.charAt(0)))
+                                    return;
+
+                                fields.put(LogDoc.controls.contains(fName) ? fName + "_" : fName, parts[1]);
+                            });
+
+                writeMsg(event, fields, getDOS());
                 rolledCycle();
             } catch (Exception e) {
                 addError(e.getMessage(), e);
@@ -142,20 +146,18 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
     protected abstract void rolledCycle() throws IOException;
 
-    private void writeMsg(final String msg, final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
-        daos.write((byte) LogDoc.NextPacket);
+    private void writeMsg(final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
         writePair(LogDoc.FieldTimeStamp, timer.apply(event.getTimeStamp()), daos);
         writePair(LogDoc.FieldProcessId, rtId, daos);
         writePair(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()), daos);
         writePair(LogDoc.FieldLevel, leveler.apply(event.getLevel()), daos);
-        writePair(LogDoc.FieldMessage, msg, daos);
         for (final Map.Entry<String, String> entry : fields.entrySet())
             writePair(entry.getKey(), entry.getValue(), daos);
-        daos.write((byte) LogDoc.EndOfPacket);
+        daos.write('\n');
     }
 
     private void writePair(final String key, final String value, final DataOutputStream daos) throws IOException {
-        if (value.indexOf(LogDoc.FieldSeparator) != -1)
+        if (value.indexOf('\n') != -1)
             writeComplexPair(key, value, daos);
         else
             writeSimplePart(key, value, daos);
@@ -164,16 +166,16 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     private void writeComplexPair(final String key, final String value, final DataOutputStream daos) throws IOException {
         final byte[] v = value.getBytes(StandardCharsets.UTF_8);
         daos.write(key.getBytes(StandardCharsets.UTF_8));
-        daos.write(LogDoc.FieldSeparator);
+        daos.write('\n');
         daos.writeLong(v.length);
         daos.write(v);
-        daos.write(LogDoc.FieldSeparator);
+        daos.write('\n');
     }
 
     private void writeSimplePart(final String key, final String value, final DataOutputStream daos) throws IOException {
-        daos.write(key.getBytes(StandardCharsets.UTF_8));
+        daos.write((key + "=" + value + "\n").getBytes(StandardCharsets.UTF_8));
         daos.write('=');
         daos.write(value.getBytes(StandardCharsets.UTF_8));
-        daos.write(LogDoc.FieldSeparator);
+        daos.write('\n');
     }
 }
