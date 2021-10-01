@@ -1,14 +1,13 @@
 package ru.gang.logdoc.appenders;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ru.gang.logdoc.utils.Tools;
+
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
+import java.net.*;
+import java.util.Arrays;
+
+import static ru.gang.logdoc.utils.Tools.header;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -16,108 +15,79 @@ import java.util.function.Consumer;
  * logback-adapter ☭ sweat and blood
  */
 public class LogdocUdpAppender extends LogdocBase {
-    private Future<?> task;
     private InetAddress address;
-    private final AtomicReference<Consumer<Void>> sender = new AtomicReference<>(unused -> {});
+    private DatagramSocket datagramSocket = null;
+    private static final int SPLITLEN = 2028; // 2048 - 2 bytes header - 16 bytes token - 1 byte sequence size - 1 byte sequence part order
 
     @Override
     protected boolean subStart() {
         try {
             address = InetAddress.getByName(host);
+            datagramSocket = new DatagramSocket();
+            datagramSocket.setSoTimeout(15000);
         } catch (final UnknownHostException ex) {
             addError("unknown host: " + host + ": " + ex.getMessage(), ex);
             return false;
+        } catch (final SocketException e) {
+            addError("Не могу инициализировать сокет отправки: " + e.getMessage(), e);
+            return false;
         }
-
-        task = getContext().getScheduledExecutorService().submit(this::doJob);
 
         return true;
     }
 
-    private void doJob() {
+    @Override
+    protected void append(final ILoggingEvent event) {
         try {
-            rollQueue();
-        } catch (InterruptedException ignore) {
+            final byte[] data = encode(event);
+
+            final int cycles = data.length / SPLITLEN + (data.length % SPLITLEN != 0 ? 1 : 0);
+            final byte[] token = Tools.token();
+
+            for (int i = 0; i < cycles; i++)
+                try (final ByteArrayOutputStream pos = new ByteArrayOutputStream(2048)) {
+                    pos.write(header);
+                    pos.write((byte) cycles);
+                    pos.write((byte) i);
+                    pos.write(token);
+                    pos.write(Arrays.copyOfRange(data, i * SPLITLEN, Math.min(data.length, (i + 1) * SPLITLEN)));
+                    final byte[] part = pos.toByteArray();
+                    datagramSocket.send(new DatagramPacket(part, 0, part.length, address, port));
+                }
         } catch (final Exception e) {
-            addError("Ошибка цикла отправки: " + e.getMessage(), e);
-            addInfo("Уходим на рестарт");
-            try { task.cancel(true); } catch (final Exception ignore) { }
-            task = getContext().getScheduledExecutorService().submit(this::doJob);
+            addError(e.getMessage(), e);
         }
-
-        addInfo("смерть");
-    }
-
-    @Override
-    protected DataOutputStream getDOS() {
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
-
-        sender.set(unused -> {
-            try {
-                final DatagramSocket datagramSocket = new DatagramSocket();
-                datagramSocket.setSoTimeout(15000);
-                datagramSocket.send(new DatagramPacket(baos.toByteArray(), baos.size(), address, port));
-            } catch (Exception e) {
-                addError(e.getMessage(), e);
-            } finally {
-                try {baos.close();} catch (final Exception ignore) {}
-            }
-        });
-
-        return new DataOutputStream(baos);
-    }
-
-    @Override
-    protected void rolledCycle() {
-        sender.get().accept(null);
-    }
-
-    @Override
-    public void stop() {
-        if (!isStarted())
-            return;
-
-        task.cancel(true);
-        super.stop();
     }
 
     public String getHost() {
-        return host;
+        return super.getHost();
     }
 
     public void setHost(final String host) {
-        this.host = host;
+        super.setHost(host);
     }
 
     public String getPrefix() {
-        return prefix;
+        return super.getPrefix();
     }
 
     public void setPrefix(final String prefix) {
-        this.prefix = prefix == null ? "" : prefix.trim() + (prefix.trim().endsWith(".") ? "" : ".");
+        super.setPrefix(prefix);
     }
 
     public String getSuffix() {
-        return suffix;
+        return super.getSuffix();
     }
 
     public void setSuffix(final String suffix) {
-        this.suffix = suffix == null ? "" : (suffix.trim().startsWith(".") ? "" : ".") + suffix.trim();
+        super.setSuffix(suffix);
     }
 
     public int getPort() {
-        return port;
+        return super.getPort();
     }
 
     public void setPort(final int port) {
-        this.port = port;
-    }
-
-    public int getQueueSize() {
-        return queueSize;
-    }
-
-    public void setQueueSize(final int queueSize) {
-        this.queueSize = queueSize;
+        super.setPort(port);
     }
 }

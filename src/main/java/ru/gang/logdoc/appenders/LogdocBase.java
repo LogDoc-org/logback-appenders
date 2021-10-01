@@ -1,26 +1,28 @@
 package ru.gang.logdoc.appenders;
 
+import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
 import ru.gang.logdoc.LogDoc;
-import ru.gang.logdoc.flaps.Leveler;
 import ru.gang.logdoc.flaps.Sourcer;
-import ru.gang.logdoc.flaps.Timer;
-import ru.gang.logdoc.flaps.impl.*;
+import ru.gang.logdoc.flaps.impl.PostSourcer;
+import ru.gang.logdoc.flaps.impl.PreSourcer;
+import ru.gang.logdoc.flaps.impl.SimpleSourcer;
+import ru.gang.logdoc.flaps.impl.SourcerBoth;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
 
-import static ru.gang.logdoc.utils.Tools.isEmpty;
-import static ru.gang.logdoc.utils.Tools.notNull;
+import static ru.gang.logdoc.utils.Tools.*;
 
 
 /**
@@ -30,17 +32,15 @@ import static ru.gang.logdoc.utils.Tools.notNull;
  */
 abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     protected static final String rtId = ManagementFactory.getRuntimeMXBean().getName();
+    private static final String fieldsAllowed = "abcdefghijklmnopqrstuvwxyz0123456789_";
 
     protected final ThrowableProxyConverter tpc = new ThrowableProxyConverter();
-    protected BlockingDeque<ILoggingEvent> deque;
 
     protected String host, prefix = "", suffix = "";
-    protected int port, queueSize = 128;
+    protected int port;
 
     /* flaps */
     protected Sourcer sourcer = new SimpleSourcer();
-    protected Timer timer = new SimpleTimer();
-    protected Leveler leveler = new SimpleLeveler();
 
     @Override
     public void start() {
@@ -56,14 +56,6 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             addError("No remote host was configured for appender " + name);
         }
 
-        if (queueSize == 0)
-            addWarn("Should use a queue size of one to indicate synchronous processing");
-
-        if (queueSize < 0) {
-            errorCount++;
-            addError("Queue size must be greater than zero");
-        }
-
         if (!prefix.isEmpty() && !suffix.isEmpty())
             sourcer = new SourcerBoth(prefix, suffix);
         else if (!prefix.isEmpty())
@@ -72,109 +64,117 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             sourcer = new PostSourcer(suffix);
 
         if (errorCount == 0 && subStart()) {
-            deque = new LinkedBlockingDeque<>(Math.max(queueSize, 1));
+            tpc.start();
             super.start();
+        }
+    }
+
+    protected final byte[] encode(final ILoggingEvent event) throws Exception {
+        final Map<String, String> fields = new HashMap<>(0);
+        StringBuilder msg = new StringBuilder(notNull(event.getFormattedMessage()));
+        final int sepIdx = msg.indexOf("@@");
+        String rawFields = null;
+
+        try (final ByteArrayOutputStream baos = new ByteArrayOutputStream(4096)) {
+            if (sepIdx != -1) {
+                rawFields = msg.substring(sepIdx + 2);
+
+                if (rawFields.indexOf('=') != -1)
+                    msg.delete(sepIdx, msg.length());
+                else
+                    rawFields = null;
+            }
+
+            if (event.getThrowableProxy() != null)
+                msg.append("\n").append(tpc.convert(event));
+
+            fields.put(LogDoc.FieldMessage, msg.toString());
+
+            if (rawFields != null) {
+                final StringBuilder name = new StringBuilder();
+                final int len = rawFields.length();
+                String pair;
+                char c;
+
+                for (int i = 1, last = 0, eq; i < len; i++)
+                    if (i != last && rawFields.charAt(i) == '@' && rawFields.charAt(i - 1) != '\\') {
+                        pair = rawFields.substring(last, i);
+
+                        if ((eq = pair.indexOf('=')) != -1) {
+                            name.delete(0, name.length());
+
+                            for (int j = 0; j < eq; j++)
+                                if (fieldsAllowed.indexOf((c = Character.toLowerCase(pair.charAt(j)))) != -1)
+                                    name.append(c);
+
+                            if (!isEmpty(name))
+                                fields.put(LogDoc.controls.contains(name.toString()) ? name + "_" : name.toString(), pair.substring(eq + 1));
+                        }
+                    }
+            }
+
+            writePair(LogDoc.FieldTimeStamp, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat), baos);
+            writePair(LogDoc.FieldProcessId, rtId, baos);
+            writePair(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()), baos);
+            writePair(LogDoc.FieldLevel, event.getLevel() == Level.TRACE ? "LOG" : event.getLevel().levelStr, baos);
+            for (final Map.Entry<String, String> entry : fields.entrySet())
+                writePair(entry.getKey(), entry.getValue(), baos);
+            baos.write('\n');
+
+            return baos.toByteArray();
         }
     }
 
     protected abstract boolean subStart();
 
-    @Override
-    protected final void append(final ILoggingEvent event) {
-        if (event == null || !isStarted())
-            return;
-
-        if (!deque.offer(event))
-            addWarn("Message queue is overflowed, last message is dropped");
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    protected void rollQueue() throws IOException, InterruptedException {
-        ILoggingEvent event;
-        StringBuilder msg;
-        int sepIdx;
-        final Map<String, String> fields = new HashMap<>(0);
-        String rawFields = null;
-
-        while ((event = deque.takeFirst()) != null) {
-            try {
-                fields.clear();
-                msg = new StringBuilder(notNull(event.getFormattedMessage()));
-
-                if ((sepIdx = msg.toString().indexOf('\r')) != -1) {
-                    rawFields = msg.substring(sepIdx + 1);
-
-                    if (rawFields.indexOf('=') != -1)
-                        msg.delete(sepIdx, msg.length());
-                    else
-                        rawFields = null;
-                }
-
-                if (event.getThrowableProxy() != null)
-                    msg.append("\n").append(tpc.convert(event));
-
-                fields.put(LogDoc.FieldMessage, msg.toString());
-
-                if (rawFields != null)
-                    Arrays.stream(rawFields.split("\r"))
-                            .filter(p -> p.indexOf('=') != -1)
-                            .forEach(p -> {
-                                final String[] parts = p.split("=");
-
-                                final String fName = notNull(parts[0]).replaceAll("[^a-zA-Z0-9_]", "");
-
-                                if (isEmpty(fName) || fName.charAt(0) == '_' || Character.isDigit(fName.charAt(0)))
-                                    return;
-
-                                fields.put(LogDoc.controls.contains(fName) ? fName + "_" : fName, parts[1]);
-                            });
-
-                writeMsg(event, fields, getDOS());
-                rolledCycle();
-            } catch (Exception e) {
-                addError(e.getMessage(), e);
-                if (!deque.offerFirst(event))
-                    addInfo("Не можем положить событие обратно в очередь - она заполнена.");
-
-                throw e;
-            }
-        }
-
-    }
-
-    protected abstract DataOutputStream getDOS();
-
-    protected abstract void rolledCycle() throws IOException;
-
-    private void writeMsg(final ILoggingEvent event, final Map<String, String> fields, final DataOutputStream daos) throws IOException {
-        writePair(LogDoc.FieldTimeStamp, timer.apply(event.getTimeStamp()), daos);
-        writePair(LogDoc.FieldProcessId, rtId, daos);
-        writePair(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()), daos);
-        writePair(LogDoc.FieldLevel, leveler.apply(event.getLevel()), daos);
-        for (final Map.Entry<String, String> entry : fields.entrySet())
-            writePair(entry.getKey(), entry.getValue(), daos);
-        daos.write('\n');
-    }
-
-    private void writePair(final String key, final String value, final DataOutputStream daos) throws IOException {
+    private void writePair(final String key, final String value, final OutputStream daos) throws IOException {
         if (value.indexOf('\n') != -1)
             writeComplexPair(key, value, daos);
         else
             writeSimplePart(key, value, daos);
     }
 
-    private void writeComplexPair(final String key, final String value, final DataOutputStream daos) throws IOException {
+    private void writeComplexPair(final String key, final String value, final OutputStream daos) throws IOException {
         final byte[] v = value.getBytes(StandardCharsets.UTF_8);
         daos.write(key.getBytes(StandardCharsets.UTF_8));
         daos.write('\n');
-        daos.writeLong(v.length);
+        new DataOutputStream(daos).writeLong(v.length);
         daos.write(v);
     }
 
-    private void writeSimplePart(final String key, final String value, final DataOutputStream daos) throws IOException {
+    private void writeSimplePart(final String key, final String value, final OutputStream daos) throws IOException {
         daos.write((key + "=" + value + "\n").getBytes(StandardCharsets.UTF_8));
-        daos.write('=');
-        daos.write(value.getBytes(StandardCharsets.UTF_8));
-        daos.write('\n');
+    }
+
+    public String getHost() {
+        return host;
+    }
+
+    public void setHost(final String host) {
+        this.host = host;
+    }
+
+    public String getPrefix() {
+        return prefix;
+    }
+
+    public void setPrefix(final String prefix) {
+        this.prefix = prefix == null ? "" : prefix.trim() + (prefix.trim().endsWith(".") ? "" : ".");
+    }
+
+    public String getSuffix() {
+        return suffix;
+    }
+
+    public void setSuffix(final String suffix) {
+        this.suffix = suffix == null ? "" : (suffix.trim().startsWith(".") ? "" : ".") + suffix.trim();
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(final int port) {
+        this.port = port;
     }
 }

@@ -10,6 +10,7 @@ import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
 
@@ -58,11 +59,10 @@ public class Httper {
         this.useCheckCertificate = useCheckCertificate;
         this.timeOutMs = timeOutMs;
         headers = new HashMap<>(0);
-
         headers.put("Content-Type", "application/octet-stream");
     }
 
-    public void execute(final URL url, final Map<String, String> requestHeaders, final Consumer<OutputStream> feeder, final Consumer<InputStream> listener) throws Exception {
+    public int execute(final URL url, final Supplier<byte[]> payload) throws Exception {
         final URLConnection urlConnection = url.openConnection();
 
         urlConnection.setDoInput(true);
@@ -80,22 +80,20 @@ public class Httper {
         for (final String headerName : headers.keySet())
             urlConnection.setRequestProperty(headerName, headers.get(headerName));
 
-        for (final String headerName : requestHeaders.keySet())
-            urlConnection.setRequestProperty(headerName, requestHeaders.get(headerName));
-
         if (url.getProtocol().equalsIgnoreCase("https") && !useCheckCertificate)
             ((HttpsURLConnection) urlConnection).setSSLSocketFactory(ignoranceFactory);
 
         urlConnection.connect();
 
-        feeder.accept(urlConnection.getOutputStream());
+        final OutputStream os = urlConnection.getOutputStream();
+        os.write(payload.get());
+        os.flush();
 
-        final int code = ((HttpURLConnection) urlConnection).getResponseCode();
-        final String cEncoding = urlConnection.getContentEncoding() == null ? "" : urlConnection.getContentEncoding();
-
-        if (listener != null) {
-            final InputStream is0 = code >= 400 ? ((HttpURLConnection) urlConnection).getErrorStream() : urlConnection.getInputStream();
-            listener.accept(cEncoding.equalsIgnoreCase("gzip") ? new GZIPInputStream(is0) : cEncoding.equalsIgnoreCase("deflate") ? new InflaterInputStream(is0) : is0);
+        try {
+            return ((HttpURLConnection) urlConnection).getResponseCode();
+        } finally {
+            try { os.close(); } catch (final Exception ignore) { }
+            try { ((HttpURLConnection) urlConnection).disconnect(); } catch (final Exception ignore) { }
         }
     }
 }

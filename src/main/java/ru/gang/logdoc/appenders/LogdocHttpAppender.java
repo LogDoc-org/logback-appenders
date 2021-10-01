@@ -1,18 +1,18 @@
 package ru.gang.logdoc.appenders;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import ru.gang.logdoc.utils.Httper;
 
 import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
-import java.util.Collections;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
+import java.util.ArrayDeque;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -20,13 +20,14 @@ import java.util.function.Consumer;
  * logback-adapter ☭ sweat and blood
  */
 public class LogdocHttpAppender extends LogdocBase {
+    private final AtomicInteger failsCounter = new AtomicInteger(0);
+    private final Queue<ILoggingEvent> queue = new ArrayDeque<>(256);
+    private final AtomicBoolean httperRun = new AtomicBoolean(false);
+
     private boolean ssl, ignoreCACheck;
     private int timeout;
     private Httper httper;
     private URL url;
-
-    private Future<?> task;
-    private final AtomicReference<Consumer<Void>> sender = new AtomicReference<>(unused -> {});
 
     @Override
     @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -42,62 +43,43 @@ public class LogdocHttpAppender extends LogdocBase {
             return false;
         }
 
-        task = getContext().getScheduledExecutorService().submit(this::doJob);
-
         return true;
     }
 
-    private void doJob() {
-        try {
-            rollQueue();
-        } catch (InterruptedException ignore) {
-        } catch (final Exception e) {
-            addError("Ошибка цикла отправки: " + e.getMessage(), e);
-            addInfo("Уходим на рестарт");
-            try {task.cancel(true);} catch (final Exception ignore) {}
-            task = getContext().getScheduledExecutorService().submit(this::doJob);
-        }
-
-        addInfo("смерть");
-    }
-
     @Override
-    protected DataOutputStream getDOS() {
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream(128);
+    protected void append(final ILoggingEvent event) {
+        queue.offer(event);
 
-        sender.set(unused -> {
-            try {
-                httper.execute(url, Collections.emptyMap(),
-                        os -> {
-                            try {
-                                os.write(baos.toByteArray());
-                                os.flush();
-                            } catch (IOException e) {
-                                addError(e.getMessage(), e);
-                            }
-                        }, null);
-            } catch (Exception e) {
-                addError(e.getMessage(), e);
-            } finally {
-                try {baos.close();} catch (final Exception ignore) {}
-            }
-        });
+        if (httperRun.compareAndSet(false, true))
+            CompletableFuture.runAsync(() -> {
+                try {
+                    final int code = httper.execute(url, () -> {
+                        try (final ByteArrayOutputStream os = new ByteArrayOutputStream(4096)) {
+                            ILoggingEvent e;
+                            while ((e = queue.poll()) != null)
+                                os.write(encode(e));
 
-        return new DataOutputStream(baos);
-    }
+                            httperRun.set(false);
 
-    @Override
-    protected void rolledCycle() {
-        sender.get().accept(null);
-    }
+                            return os.toByteArray();
+                        } catch (final Exception e) {
+                            addError(e.getMessage(), e);
+                        }
 
-    @Override
-    public void stop() {
-        if (!isStarted())
-            return;
-
-        task.cancel(true);
-        super.stop();
+                        return new byte[0];
+                    });
+                    if (code != 200) {
+                        if (failsCounter.incrementAndGet() >= 5000) {
+                            addError("Maximum number of errors reached, appender shut down.");
+                            stop();
+                        } else
+                            addWarn("Wrong logdoc response code: " + code);
+                    } else
+                        failsCounter.set(0);
+                } catch (final Exception e) {
+                    addError(e.getMessage(), e);
+                }
+            });
     }
 
     public boolean isSsl() {
@@ -125,43 +107,34 @@ public class LogdocHttpAppender extends LogdocBase {
     }
 
     public String getHost() {
-        return host;
+        return super.getHost();
     }
 
     public void setHost(final String host) {
-        this.host = host;
+        super.setHost(host);
     }
 
     public String getPrefix() {
-        return prefix;
+        return super.getPrefix();
     }
 
     public void setPrefix(final String prefix) {
-        this.prefix = prefix == null ? "" : prefix.trim() + (prefix.trim().endsWith(".") ? "" : ".");
+        super.setPrefix(prefix);
     }
 
     public String getSuffix() {
-        return suffix;
+        return super.getSuffix();
     }
 
     public void setSuffix(final String suffix) {
-        this.suffix = suffix == null ? "" : (suffix.trim().startsWith(".") ? "" : ".") + suffix.trim();
+        super.setSuffix(suffix);
     }
 
     public int getPort() {
-        return port;
+        return super.getPort();
     }
 
     public void setPort(final int port) {
-        this.port = port;
+        super.setPort(port);
     }
-
-    public int getQueueSize() {
-        return queueSize;
-    }
-
-    public void setQueueSize(final int queueSize) {
-        this.queueSize = queueSize;
-    }
-
 }
