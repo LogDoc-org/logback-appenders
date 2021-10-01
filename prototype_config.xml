@@ -5,10 +5,9 @@
         <host>127.0.0.1</host>
         <port>7686</port>
 
-        <!-- Optional tuning. Default values are predefined. Used only if token is missed -->
-        <prefix/> <!-- absolute prefix for logger name (source) -->
-        <suffix/> <!-- absolute suffix for logger name (source) -->
-        <queueSize>128</queueSize>  <!-- Size of events caching queue -->
+        <!-- Optional fields -->
+        <prefix/> <!-- absolute prefix for any logger name (source) -->
+        <suffix/> <!-- absolute suffix for any logger name (source) -->
     </appender>
 
     <root level="DEBUG">
