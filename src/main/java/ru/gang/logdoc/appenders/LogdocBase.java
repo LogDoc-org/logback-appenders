@@ -10,13 +10,9 @@ import ru.gang.logdoc.flaps.impl.PostSourcer;
 import ru.gang.logdoc.flaps.impl.PreSourcer;
 import ru.gang.logdoc.flaps.impl.SimpleSourcer;
 import ru.gang.logdoc.flaps.impl.SourcerBoth;
+import ru.gang.logdoc.structs.utils.EntryWriteStrategy;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -75,76 +71,52 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         final int sepIdx = msg.indexOf("@@");
         String rawFields = null;
 
-        try (final ByteArrayOutputStream baos = new ByteArrayOutputStream(4096)) {
-            if (sepIdx != -1) {
-                rawFields = msg.substring(sepIdx + 2);
+        if (sepIdx != -1) {
+            rawFields = msg.substring(sepIdx + 2);
 
-                if (rawFields.indexOf('=') != -1)
-                    msg.delete(sepIdx, msg.length());
-                else
-                    rawFields = null;
-            }
-
-            if (event.getThrowableProxy() != null)
-                msg.append("\n").append(tpc.convert(event));
-
-            fields.put(LogDoc.FieldMessage, msg.toString());
-
-            if (rawFields != null) {
-                final StringBuilder name = new StringBuilder();
-                final int len = rawFields.length();
-                String pair;
-                char c;
-
-                for (int i = 1, last = 0, eq; i < len; i++)
-                    if (i != last && rawFields.charAt(i) == '@' && rawFields.charAt(i - 1) != '\\') {
-                        pair = rawFields.substring(last, i);
-
-                        if ((eq = pair.indexOf('=')) != -1) {
-                            name.delete(0, name.length());
-
-                            for (int j = 0; j < eq; j++)
-                                if (fieldsAllowed.indexOf((c = Character.toLowerCase(pair.charAt(j)))) != -1)
-                                    name.append(c);
-
-                            if (!isEmpty(name))
-                                fields.put(LogDoc.controls.contains(name.toString()) ? name + "_" : name.toString(), pair.substring(eq + 1));
-                        }
-                    }
-            }
-
-            writePair(LogDoc.FieldTimeStamp, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat), baos);
-            writePair(LogDoc.FieldProcessId, rtId, baos);
-            writePair(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()), baos);
-            writePair(LogDoc.FieldLevel, event.getLevel() == Level.TRACE ? "LOG" : event.getLevel().levelStr, baos);
-            for (final Map.Entry<String, String> entry : fields.entrySet())
-                writePair(entry.getKey(), entry.getValue(), baos);
-            baos.write('\n');
-
-            return baos.toByteArray();
+            if (rawFields.indexOf('=') != -1)
+                msg.delete(sepIdx, msg.length());
+            else
+                rawFields = null;
         }
+
+        if (event.getThrowableProxy() != null)
+            msg.append("\n").append(tpc.convert(event));
+
+        fields.put(LogDoc.FieldMessage, msg.toString());
+
+        if (rawFields != null) {
+            final StringBuilder name = new StringBuilder();
+            final int len = rawFields.length();
+            String pair;
+            char c;
+
+            for (int i = 1, last = 0, eq; i < len; i++)
+                if (i != last && rawFields.charAt(i) == '@' && rawFields.charAt(i - 1) != '\\') {
+                    pair = rawFields.substring(last, i);
+
+                    if ((eq = pair.indexOf('=')) != -1) {
+                        name.delete(0, name.length());
+
+                        for (int j = 0; j < eq; j++)
+                            if (fieldsAllowed.indexOf((c = Character.toLowerCase(pair.charAt(j)))) != -1)
+                                name.append(c);
+
+                        if (!isEmpty(name))
+                            fields.put(LogDoc.controls.contains(name.toString()) ? name + "_" : name.toString(), pair.substring(eq + 1));
+                    }
+                }
+        }
+
+        fields.put(LogDoc.FieldTimeStamp, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat));
+        fields.put(LogDoc.FieldProcessId, rtId);
+        fields.put(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()));
+        fields.put(LogDoc.FieldLevel, event.getLevel() == Level.TRACE ? "LOG" : event.getLevel().levelStr);
+
+        return new EntryWriteStrategy().apply(fields);
     }
 
     protected abstract boolean subStart();
-
-    private void writePair(final String key, final String value, final OutputStream daos) throws IOException {
-        if (value.indexOf('\n') != -1)
-            writeComplexPair(key, value, daos);
-        else
-            writeSimplePart(key, value, daos);
-    }
-
-    private void writeComplexPair(final String key, final String value, final OutputStream daos) throws IOException {
-        final byte[] v = value.getBytes(StandardCharsets.UTF_8);
-        daos.write(key.getBytes(StandardCharsets.UTF_8));
-        daos.write('\n');
-        new DataOutputStream(daos).writeLong(v.length);
-        daos.write(v);
-    }
-
-    private void writeSimplePart(final String key, final String value, final OutputStream daos) throws IOException {
-        daos.write((key + "=" + value + "\n").getBytes(StandardCharsets.UTF_8));
-    }
 
     public String getHost() {
         return host;
