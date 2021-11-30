@@ -9,6 +9,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static ru.gang.logdoc.utils.Tools.header;
+
 /**
  * @author Denis Danilin | denis@danilin.name
  * 24.02.2021 18:03
@@ -71,7 +73,6 @@ public class LogdocTcpAppender extends LogdocBase {
 
             if (socket.isConnected()) {
                 daos = new BufferedOutputStream(socket.getOutputStream());
-
                 connectFails.set(0);
                 return false;
             }

@@ -4,19 +4,20 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
-import ru.gang.logdoc.LogDoc;
 import ru.gang.logdoc.flaps.Sourcer;
 import ru.gang.logdoc.flaps.impl.PostSourcer;
 import ru.gang.logdoc.flaps.impl.PreSourcer;
 import ru.gang.logdoc.flaps.impl.SimpleSourcer;
 import ru.gang.logdoc.flaps.impl.SourcerBoth;
-import ru.gang.logdoc.structs.utils.EntryWriteStrategy;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.management.ManagementFactory;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static ru.gang.logdoc.utils.Tools.*;
 
@@ -31,6 +32,16 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     private static final String fieldsAllowed = "abcdefghijklmnopqrstuvwxyz0123456789_";
 
     protected final ThrowableProxyConverter tpc = new ThrowableProxyConverter();
+    private final static String FieldTimeStamp = "time_src",
+            FieldProcessId = "source_id",
+            FieldSource = "source_name",
+            FieldLevel = "level",
+            FieldMessage = "log_message",
+            FieldTimeRcv = "time_rcv",
+            FieldIp = "source_ip";
+    private static final Set<String> controlFields = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(FieldTimeStamp, FieldProcessId, FieldSource, FieldLevel, FieldMessage,
+            FieldTimeRcv, FieldIp)));
+
 
     protected String host, prefix = "", suffix = "";
     protected int port;
@@ -83,7 +94,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         if (event.getThrowableProxy() != null)
             msg.append("\n").append(tpc.convert(event));
 
-        fields.put(LogDoc.FieldMessage, msg.toString());
+        fields.put(FieldMessage, msg.toString());
 
         if (rawFields != null) {
             final StringBuilder name = new StringBuilder();
@@ -102,18 +113,57 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                             if (fieldsAllowed.indexOf((c = Character.toLowerCase(pair.charAt(j)))) != -1)
                                 name.append(c);
 
+                            if (controlFields.contains(name.toString()))
+                                name.append('_');
+
                         if (!isEmpty(name))
-                            fields.put(LogDoc.controls.contains(name.toString()) ? name + "_" : name.toString(), pair.substring(eq + 1));
+                            fields.put(name.toString(), pair.substring(eq + 1));
                     }
                 }
         }
 
-        fields.put(LogDoc.FieldTimeStamp, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat));
-        fields.put(LogDoc.FieldProcessId, rtId);
-        fields.put(LogDoc.FieldSource, sourcer.apply(event.getLoggerName()));
-        fields.put(LogDoc.FieldLevel, event.getLevel() == Level.TRACE ? "LOG" : event.getLevel().levelStr);
+        fields.put(FieldTimeStamp, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat));
+        fields.put(FieldProcessId, rtId);
+        fields.put(FieldSource, sourcer.apply(event.getLoggerName()));
+        fields.put(FieldLevel, event.getLevel() == Level.TRACE ? "LOG" : event.getLevel().levelStr);
 
-        return new EntryWriteStrategy().apply(fields);
+        try (final ByteArrayOutputStream os = new ByteArrayOutputStream()) {
+            os.write(header);
+            for (final Map.Entry<String, String> e : fields.entrySet())
+                writePair(e.getKey(), e.getValue(), os);
+
+            os.write('\n');
+            return os.toByteArray();
+        }
+    }
+
+    private void writePair(final String key, final String value, final OutputStream daos) throws IOException {
+        if (value == null)
+            return;
+
+        if (value.indexOf('\n') != -1)
+            writeComplexPair(key, value, daos);
+        else
+            writeSimplePart(key, value, daos);
+    }
+
+    private void writeComplexPair(final String key, final String value, final OutputStream daos) throws IOException {
+        daos.write(key.getBytes(StandardCharsets.UTF_8));
+        daos.write('\n');
+        final byte[] v = value.getBytes(StandardCharsets.UTF_8);
+        writeInt(v.length, daos);
+        daos.write(v);
+    }
+
+    private void writeSimplePart(final String key, final String value, final OutputStream daos) throws IOException {
+        daos.write((key + "=" + value + "\n").getBytes(StandardCharsets.UTF_8));
+    }
+
+    static void writeInt(final int in, final OutputStream os) throws IOException {
+        os.write((in >>> 24) & 0xff);
+        os.write((in >>> 16) & 0xff);
+        os.write((in >>> 8) & 0xff);
+        os.write((in) & 0xff);
     }
 
     protected abstract boolean subStart();
