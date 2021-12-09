@@ -126,6 +126,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         fields.put(FieldProcessId, rtId);
         fields.put(FieldSource, sourcer.apply(event.getLoggerName()));
         fields.put(FieldLevel, event.getLevel() == Level.TRACE ? "LOG" : event.getLevel().levelStr);
+        fields.put("threadName", event.getThreadName());
 
         try (final ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             os.write(header);

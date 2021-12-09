@@ -6,7 +6,7 @@
 
     <groupId>ru.gang.logdoc</groupId>
     <artifactId>logback-lib</artifactId>
-    <version>1.0.4</version>
+    <version>1.0.5</version>
 
     <name>logback-lib</name>
 
