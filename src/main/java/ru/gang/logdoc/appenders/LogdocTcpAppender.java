@@ -60,6 +60,7 @@ public class LogdocTcpAppender extends LogdocBase {
             daos.flush();
         } catch (final Exception e) {
             addError(e.getMessage(), e);
+            getContext().getScheduledExecutorService().schedule(() -> onGuard.set(false), connectFails.get() * 5L, TimeUnit.SECONDS);
         }
     }
 
