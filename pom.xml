@@ -18,7 +18,7 @@
     <repositories>
         <repository>
             <id>logdoc-common</id>
-            <url>http://jwebhelp.ru:8080/repository/logdoc-common</url>
+            <url>http://archiva.jwebhelp.ru/repository/logdoc-common</url>
         </repository>
     </repositories>
 
@@ -26,12 +26,12 @@
         <repository>
             <id>logdoc-common</id>
             <name>logdoc-releases</name>
-            <url>http://jwebhelp.ru:8080/repository/logdoc-common</url>
+            <url>http://archiva.jwebhelp.ru/repository/logdoc-common</url>
         </repository>
         <snapshotRepository>
             <id>logdoc-common</id>
             <name>logdoc-snapshots</name>
-            <url>http://jwebhelp.ru:8080/repository/logdoc-common</url>
+            <url>http://archiva.jwebhelp.ru/repository/logdoc-common</url>
         </snapshotRepository>
     </distributionManagement>
 
