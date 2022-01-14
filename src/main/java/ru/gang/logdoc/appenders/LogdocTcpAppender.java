@@ -2,14 +2,14 @@ package ru.gang.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import static ru.gang.logdoc.utils.Tools.header;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -21,75 +21,81 @@ public class LogdocTcpAppender extends LogdocBase {
 
     private static final int SOCKET_CHECK_TIMEOUT = 5000;
 
-    private Socket socket;
-    private OutputStream daos;
-    private final AtomicInteger connectFails = new AtomicInteger(0);
-    private final AtomicBoolean onGuard = new AtomicBoolean(false);
+    //    private Socket socket;
+    private volatile OutputStream os = null;
+    //    private final AtomicInteger connectFails = new AtomicInteger(0);
+    private final AtomicBoolean armed = new AtomicBoolean(false);
+
+    private final BlockingQueue<byte[]> overexposure = new ArrayBlockingQueue<>(50);
 
     @Override
     protected boolean subStart() {
-        if (!socketFails())
-            addWarn("Connection is not ready, will try 50 times more later");
+        doConnect();
 
         return true;
     }
 
     @Override
     protected void append(final ILoggingEvent event) {
-        if (onGuard.get())
+
+        final byte[] data;
+        try {
+            data = encode(event);
+        } catch (final Exception e) {
+            addWarn("Cant encode envent: " + e.getMessage(), e);
             return;
+        }
 
-        if (socketFails()) {
-            if (!onGuard.compareAndSet(false, true))
-                return;
-
-            if (connectFails.incrementAndGet() >= 50) {
-                addError("50 connect fails - we're done.");
-                stop();
-                return;
-            } else {
-                addWarn("Connect fail, going to repeat in " + (connectFails.get() * 5) + " seconds.");
-                getContext().getScheduledExecutorService().schedule(() -> onGuard.set(false), connectFails.get() * 5L, TimeUnit.SECONDS);
+        if (os == null) {
+            while (!overexposure.offer(data)) {
+                overexposure.poll();
+                addWarn("Queue is full, removing oldest event");
             }
 
+            doConnect();
             return;
         }
 
         try {
-            daos.write(encode(event));
-            daos.flush();
+            os.write(encode(event));
+            os.flush();
         } catch (final Exception e) {
-            addError(e.getMessage(), e);
-            getContext().getScheduledExecutorService().schedule(() -> onGuard.set(false), connectFails.get() * 5L, TimeUnit.SECONDS);
+            addWarn("Failed send event: " + e.getMessage());
+            doConnect();
         }
     }
 
-    private boolean socketFails() {
+    private void doConnect() {
+        if (!armed.compareAndSet(false, true))
+            return;
+
+        os = null;
+        getContext().getScheduledExecutorService().schedule(this::doSocket, 5L, TimeUnit.SECONDS);
+    }
+
+    private void doSocket() {
+        armed.set(false);
+
         try {
-            if (socket != null && socket.getInetAddress().isReachable(SOCKET_CHECK_TIMEOUT) && socket.isConnected() && !socket.isOutputShutdown() && !socket.isInputShutdown())
-                return false;
+            os = new Socket(InetAddress.getByName(host), port).getOutputStream();
 
-            socket = new Socket(InetAddress.getByName(host), port);
-            daos = null;
+            byte[] toSend;
 
-            if (socket.isConnected()) {
-                daos = new BufferedOutputStream(socket.getOutputStream());
-                connectFails.set(0);
-                return false;
-            }
+            while ((toSend = overexposure.poll()) != null)
+                os.write(toSend);
+
+            os.flush();
         } catch (final Exception e) {
-            addError(e.getMessage(), e);
+            addError("Cant connect and flush queue: " + e.getMessage());
+            doConnect();
         }
-
-        return true;
     }
 
     @Override
     public void stop() {
         if (!isStarted())
             return;
-        try {daos.close();} catch (final Exception ignore) {}
-        try {socket.close();} catch (final Exception ignore) {}
+        try {os.close();} catch (final Exception ignore) {}
 
         super.stop();
     }
