@@ -2,7 +2,6 @@ package ru.gang.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 
-import java.io.BufferedOutputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
@@ -21,9 +20,7 @@ public class LogdocTcpAppender extends LogdocBase {
 
     private static final int SOCKET_CHECK_TIMEOUT = 5000;
 
-    //    private Socket socket;
     private volatile OutputStream os = null;
-    //    private final AtomicInteger connectFails = new AtomicInteger(0);
     private final AtomicBoolean armed = new AtomicBoolean(false);
 
     private final BlockingQueue<byte[]> overexposure = new ArrayBlockingQueue<>(50);

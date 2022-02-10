@@ -7,7 +7,8 @@ import java.io.ByteArrayOutputStream;
 import java.net.*;
 import java.util.Arrays;
 
-import static ru.gang.logdoc.utils.Tools.header;
+import static ru.gang.logdoc.LogDocConstants.header;
+import static ru.gang.logdoc.utils.Tools.token;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -42,7 +43,7 @@ public class LogdocUdpAppender extends LogdocBase {
             final byte[] data = encode(event);
 
             final int cycles = data.length / SPLITLEN + (data.length % SPLITLEN != 0 ? 1 : 0);
-            final byte[] token = Tools.token();
+            final byte[] token = token();
 
             for (int i = 0; i < cycles; i++)
                 try (final ByteArrayOutputStream pos = new ByteArrayOutputStream(2048)) {

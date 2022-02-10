@@ -1,6 +1,5 @@
 package ru.gang.logdoc.appenders;
 
-import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
@@ -19,6 +18,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.*;
 
+import static ru.gang.logdoc.LogDocConstants.Fields.*;
+import static ru.gang.logdoc.LogDocConstants.header;
+import static ru.gang.logdoc.LogDocConstants.logTimeFormat;
 import static ru.gang.logdoc.utils.Tools.*;
 
 
@@ -32,15 +34,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     private static final String fieldsAllowed = "abcdefghijklmnopqrstuvwxyz0123456789_";
 
     protected final ThrowableProxyConverter tpc = new ThrowableProxyConverter();
-    private final static String FieldTimeStamp = "time_src",
-            FieldProcessId = "source_id",
-            FieldSource = "source_name",
-            FieldLevel = "level",
-            FieldMessage = "log_message",
-            FieldTimeRcv = "time_rcv",
-            FieldIp = "source_ip";
-    private static final Set<String> controlFields = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(FieldTimeStamp, FieldProcessId, FieldSource, FieldLevel, FieldMessage,
-            FieldTimeRcv, FieldIp)));
+    private static final Set<String> controlFields = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(TimeSrc, Pid, Source, Level, Message, TimeRcv, Ip)));
 
 
     protected String host, prefix = "", suffix = "";
@@ -94,7 +88,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         if (event.getThrowableProxy() != null)
             msg.append("\n").append(tpc.convert(event));
 
-        fields.put(FieldMessage, msg.toString());
+        fields.put(Message, msg.toString());
 
         if (rawFields != null) {
             final StringBuilder name = new StringBuilder();
@@ -113,8 +107,8 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                             if (fieldsAllowed.indexOf((c = Character.toLowerCase(pair.charAt(j)))) != -1)
                                 name.append(c);
 
-                            if (controlFields.contains(name.toString()))
-                                name.append('_');
+                        if (controlFields.contains(name.toString()))
+                            name.append('_');
 
                         if (!isEmpty(name))
                             fields.put(name.toString(), pair.substring(eq + 1));
@@ -122,10 +116,10 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                 }
         }
 
-        fields.put(FieldTimeStamp, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat));
-        fields.put(FieldProcessId, rtId);
-        fields.put(FieldSource, sourcer.apply(event.getLoggerName()));
-        fields.put(FieldLevel, event.getLevel() == Level.TRACE ? "LOG" : event.getLevel().levelStr);
+        fields.put(TimeSrc, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat));
+        fields.put(Pid, rtId);
+        fields.put(Source, sourcer.apply(event.getLoggerName()));
+        fields.put(Level, event.getLevel() == ch.qos.logback.classic.Level.TRACE ? "LOG" : event.getLevel().levelStr);
         fields.put("threadName", event.getThreadName());
 
         try (final ByteArrayOutputStream os = new ByteArrayOutputStream()) {
