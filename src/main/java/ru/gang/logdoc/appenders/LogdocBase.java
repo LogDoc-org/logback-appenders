@@ -101,7 +101,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
                 final String v = pair.substring(sep + 1).trim();
 
                 if (!n.isEmpty() && !v.isEmpty())
-                    fields.put(n, v);
+                    fields.put(n + (controlFields.contains(n) ? "_" : ""), v);
 
                 rawFields = nxt == -1 ? "" : rawFields.substring(nxt + 1).trim();
             }
