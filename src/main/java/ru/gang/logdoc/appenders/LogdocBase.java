@@ -77,7 +77,7 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         String rawFields = null;
 
         if (sepIdx != -1) {
-            rawFields = msg.substring(sepIdx + 2);
+            rawFields = msg.substring(sepIdx + 2).trim();
 
             if (rawFields.indexOf('=') != -1)
                 msg.delete(sepIdx, msg.length());
@@ -91,29 +91,20 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         fields.put(Message, msg.toString());
 
         if (rawFields != null) {
-            final StringBuilder name = new StringBuilder();
-            final int len = rawFields.length();
+            int sep, nxt;
             String pair;
-            char c;
 
-            for (int i = 1, last = 0, eq; i < len; i++)
-                if (i != last && rawFields.charAt(i) == '@' && rawFields.charAt(i - 1) != '\\') {
-                    pair = rawFields.substring(last, i);
+            while ((sep = rawFields.indexOf('=')) != -1) {
+                pair = (((nxt = rawFields.indexOf('@')) == -1) ? rawFields : rawFields.substring(0, nxt)).trim();
 
-                    if ((eq = pair.indexOf('=')) != -1) {
-                        name.delete(0, name.length());
+                final String n = pair.substring(0, sep).trim();
+                final String v = pair.substring(sep + 1).trim();
 
-                        for (int j = 0; j < eq; j++)
-                            if (fieldsAllowed.indexOf((c = Character.toLowerCase(pair.charAt(j)))) != -1)
-                                name.append(c);
+                if (!n.isEmpty() && !v.isEmpty())
+                    fields.put(n, v);
 
-                        if (controlFields.contains(name.toString()))
-                            name.append('_');
-
-                        if (!isEmpty(name))
-                            fields.put(name.toString(), pair.substring(eq + 1));
-                    }
-                }
+                rawFields = nxt == -1 ? "" : rawFields.substring(nxt + 1).trim();
+            }
         }
 
         fields.put(TimeSrc, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat));
