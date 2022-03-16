@@ -31,13 +31,13 @@ import static ru.gang.logdoc.utils.Tools.*;
  */
 abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
     protected static final String rtId = ManagementFactory.getRuntimeMXBean().getName();
-    private static final String fieldsAllowed = "abcdefghijklmnopqrstuvwxyz0123456789_";
 
     protected final ThrowableProxyConverter tpc = new ThrowableProxyConverter();
-    private static final Set<String> controlFields = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(TimeSrc, Pid, Source, Level, Message, TimeRcv, Ip)));
+    private static final Set<String> controlFields = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(TimeSrc, Pid, Source, Level, Message, TimeRcv, Ip, AppName)));
 
 
-    protected String host, prefix = "", suffix = "";
+    protected String host, prefix = "", suffix = "", appName;
+    protected boolean mapMdc;
     protected int port;
 
     /* flaps */
@@ -52,9 +52,14 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             addError("No port was configured for appender " + name);
         }
 
-        if (host == null) {
+        if (isEmpty(host)) {
             errorCount++;
             addError("No remote host was configured for appender " + name);
+        }
+
+        if (isEmpty(appName)) {
+            errorCount++;
+            addError("No application name was configured for appender " + name);
         }
 
         if (!prefix.isEmpty() && !suffix.isEmpty())
@@ -107,10 +112,17 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
             }
         }
 
+        if (mapMdc && !isEmpty(event.getMDCPropertyMap()))
+            event.getMDCPropertyMap().forEach((name, value) -> {
+                if (!isEmpty(name))
+                    fields.put(name + (controlFields.contains(name) ? "_" : ""), value);
+            });
+
         fields.put(TimeSrc, Instant.ofEpochMilli(event.getTimeStamp()).atZone(ZoneId.systemDefault()).toLocalDateTime().format(logTimeFormat));
         fields.put(Pid, rtId);
         fields.put(Source, sourcer.apply(event.getLoggerName()));
         fields.put(Level, event.getLevel() == ch.qos.logback.classic.Level.TRACE ? "LOG" : event.getLevel().levelStr);
+        fields.put(AppName, appName);
         fields.put("threadName", event.getThreadName());
 
         try (final ByteArrayOutputStream os = new ByteArrayOutputStream()) {
@@ -184,5 +196,21 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
 
     public void setPort(final int port) {
         this.port = port;
+    }
+
+    public String getAppName() {
+        return appName;
+    }
+
+    public void setAppName(final String appName) {
+        this.appName = isEmpty(appName) ? null : appName.replaceAll("[^a-zA-Z0-9-_]", "");
+    }
+
+    public boolean isMapMdc() {
+        return mapMdc;
+    }
+
+    public void setMapMdc(final boolean mapMdc) {
+        this.mapMdc = mapMdc;
     }
 }

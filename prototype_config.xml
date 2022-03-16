@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="true">
+
     <appender class="ru.gang.logdoc.appenders.LogdocTcpAppender" name="LOGDOC">
         <!-- Mandatory fields -->
         <host>127.0.0.1</host>
         <port>7686</port>
+        <appName>myApp</appName>
 
         <!-- Optional fields -->
-        <prefix/> <!-- absolute prefix for any logger name (source) -->
-        <suffix/> <!-- absolute suffix for any logger name (source) -->
+        <prefix/> <!-- custom static prefix for any logger name (source), default none -->
+        <suffix/> <!-- custom static suffix for any logger name (source), default none -->
+        <mapMdc>false</mapMdc> <!-- map MDC to fields (if any), default false -->
     </appender>
 
     <root level="DEBUG">

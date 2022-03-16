@@ -128,4 +128,24 @@ public class LogdocTcpAppender extends LogdocBase {
     public void setPort(final int port) {
         super.setPort(port);
     }
+
+    @Override
+    public String getAppName() {
+        return super.getAppName();
+    }
+
+    @Override
+    public void setAppName(final String appName) {
+        super.setAppName(appName);
+    }
+
+    @Override
+    public boolean isMapMdc() {
+        return super.isMapMdc();
+    }
+
+    @Override
+    public void setMapMdc(final boolean mapMdc) {
+        super.setMapMdc(mapMdc);
+    }
 }
