@@ -18,9 +18,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.*;
 
-import static ru.gang.logdoc.LogDocConstants.Fields.*;
-import static ru.gang.logdoc.LogDocConstants.header;
-import static ru.gang.logdoc.LogDocConstants.logTimeFormat;
+import static org.logdoc.LogDocConstants.Fields.*;
+import static org.logdoc.LogDocConstants.header;
+import static org.logdoc.LogDocConstants.logTimeFormat;
 import static org.logdoc.utils.Tools.*;
 
 

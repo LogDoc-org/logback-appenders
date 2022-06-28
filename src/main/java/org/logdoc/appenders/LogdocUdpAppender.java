@@ -6,7 +6,7 @@ import java.io.ByteArrayOutputStream;
 import java.net.*;
 import java.util.Arrays;
 
-import static ru.gang.logdoc.LogDocConstants.header;
+import static org.logdoc.LogDocConstants.header;
 import static org.logdoc.utils.Tools.token;
 
 /**
