@@ -13,6 +13,8 @@ import static org.logdoc.utils.Tools.token;
  * @author Denis Danilin | denis@danilin.name
  * 25.02.2021 16:18
  * logback-adapter ☭ sweat and blood
+ * <p>
+ * Appender with UDP transport
  */
 public class LogdocUdpAppender extends LogdocBase {
     private InetAddress address;

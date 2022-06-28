@@ -28,17 +28,51 @@ import static org.logdoc.utils.Tools.*;
  * @author Denis Danilin | denis@danilin.name
  * 25.02.2021 12:40
  * logback-adapter ☭ sweat and blood
+ * <p>
+ * Base class for every logdoc appender, implements LogDoc protocol and parses raw log events for custom "fields"
  */
 abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
+    /**
+     * Running JVM instance local ID
+     */
     protected static final String rtId = ManagementFactory.getRuntimeMXBean().getName();
 
     protected final ThrowableProxyConverter tpc = new ThrowableProxyConverter();
+
+    /**
+     * These are reserved field names for LogDoc service attributes, can't be used in custom fields
+     */
     private static final Set<String> controlFields = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(TimeSrc, Pid, Source, Level, Message, TimeRcv, Ip, AppName)));
 
+    /**
+     * Mandatory config value -- LogDoc host address
+     */
+    protected String host;
 
-    protected String host, prefix = "", suffix = "", appName;
-    protected boolean mapMdc;
+    /**
+     * Mandatory config value -- LogDoc host port
+     */
     protected int port;
+
+    /**
+     * Optional config value -- static prefix for every log source
+     */
+    protected String prefix = "";
+
+    /**
+     * Optional config value -- static suffix for every log source
+     */
+    protected String suffix = "";
+
+    /**
+     * Mandatory config value -- application name, to track it in LogDoc by name
+     */
+    protected String appName;
+
+    /**
+     * Mandatory config value (defaults to false). Flag to map MDC to LogDoc "fields" if true.
+     */
+    protected boolean mapMdc;
 
     /* flaps */
     protected Sourcer sourcer = new SimpleSourcer();
@@ -75,6 +109,22 @@ abstract class LogdocBase extends AppenderBase<ILoggingEvent> {
         }
     }
 
+    /**
+     * LogDoc log event is a sequence of 'name=value' pairs in a binary view (LE). Each event starts with a header [0x6, 0x3] and ends with a '\n' byte
+     * Only one pair is mandatory - with name 'message' and nonempty value.
+     * <p>
+     * encode() converts logback log event into LogDoc log event.
+     * <p>
+     * Service fields are computed from event attributes, custom fields are parsed from event body by simple markup:
+     * - If body contains '@@' substring - all after this mark is treated as fields
+     * - One field it's a pair of name and value, separated by '=' char
+     * - Field's pair end is a '\n' char or end of body
+     * - Everything after '@@' substring, untill end of body and not matching to name/value pair is ignored
+     *
+     * @param event logback Log event
+     * @return LogDoc log event in a binary view
+     * @throws Exception if something went wrong
+     */
     protected final byte[] encode(final ILoggingEvent event) throws Exception {
         final Map<String, String> fields = new HashMap<>(0);
         StringBuilder msg = new StringBuilder(notNull(event.getFormattedMessage()));

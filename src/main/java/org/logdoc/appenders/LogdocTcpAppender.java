@@ -14,6 +14,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @author Denis Danilin | denis@danilin.name
  * 24.02.2021 18:03
  * logback-adapter ☭ sweat and blood
+ * <p>
+ * Appender with TCP/IP transport
  */
 @SuppressWarnings("unused")
 public class LogdocTcpAppender extends LogdocBase {

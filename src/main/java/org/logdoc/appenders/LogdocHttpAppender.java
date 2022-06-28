@@ -18,14 +18,29 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Denis Danilin | denis@danilin.name
  * 25.02.2021 16:44
  * logback-adapter ☭ sweat and blood
+ * <p>
+ * Appender with HTTP transport
  */
 public class LogdocHttpAppender extends LogdocBase {
     private final AtomicInteger failsCounter = new AtomicInteger(0);
     private final Queue<ILoggingEvent> queue = new ArrayDeque<>(256);
     private final AtomicBoolean httperRun = new AtomicBoolean(false);
 
-    private boolean ssl, ignoreCACheck;
+    /**
+     * Optional config value (defaults to false) - flag if we should use https instead of http
+     */
+    private boolean ssl;
+
+    /**
+     * Optional config value (defaults to false) - flag if we should ignore CA errors (e.g. accept self-signed host certs)
+     */
+    private boolean ignoreCACheck;
+
+    /**
+     * Optional config value - http read timeout in seconds, defaults to 15 (seconds)
+     */
     private int timeout;
+
     private Httper httper;
     private URL url;
 
@@ -59,17 +74,17 @@ public class LogdocHttpAppender extends LogdocBase {
                             while ((e = queue.poll()) != null)
                                 os.write(encode(e));
 
-                            httperRun.set(false);
-
                             return os.toByteArray();
                         } catch (final Exception e) {
                             addError(e.getMessage(), e);
+                        } finally {
+                            httperRun.set(false);
                         }
 
                         return new byte[0];
                     });
                     if (code != 200) {
-                        if (failsCounter.incrementAndGet() >= 5000) {
+                        if (failsCounter.incrementAndGet() > 255) {
                             addError("Maximum number of errors reached, appender shut down.");
                             stop();
                         } else
