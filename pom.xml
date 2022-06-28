@@ -49,7 +49,7 @@
     <scm>
         <connection>scm:git:ssh://git@github.com/logdocpub/logback-appenders.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/logdocpub/logback-appenders.git</developerConnection>
-        <tag>logback-appenders-1.0.0</tag>
+        <tag>logback-appenders-1.0.1</tag>
         <url>https://github.com/logdocpub/logback-appenders</url>
     </scm>
 
@@ -84,13 +84,13 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-core</artifactId>
-            <version>1.2.3</version>
+            <version>1.2.6</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.2.3</version>
+            <version>1.2.6</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
