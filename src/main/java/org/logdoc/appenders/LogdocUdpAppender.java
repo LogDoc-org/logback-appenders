@@ -1,14 +1,13 @@
-package ru.gang.logdoc.appenders;
+package org.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ru.gang.logdoc.utils.Tools;
 
 import java.io.ByteArrayOutputStream;
 import java.net.*;
 import java.util.Arrays;
 
 import static ru.gang.logdoc.LogDocConstants.header;
-import static ru.gang.logdoc.utils.Tools.token;
+import static org.logdoc.utils.Tools.token;
 
 /**
  * @author Denis Danilin | denis@danilin.name

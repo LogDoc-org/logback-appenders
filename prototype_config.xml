@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration debug="true">
 
-    <appender class="ru.gang.logdoc.appenders.LogdocTcpAppender" name="LOGDOC">
+    <appender class="org.logdoc.appenders.LogdocTcpAppender" name="LOGDOC">
         <!-- Mandatory fields -->
         <host>127.0.0.1</host>
         <port>7686</port>

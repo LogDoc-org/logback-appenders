@@ -1,7 +1,6 @@
-package ru.gang.logdoc.utils;
+package org.logdoc.utils;
 
 import javax.net.ssl.*;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -9,10 +8,7 @@ import java.net.URLConnection;
 import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.InflaterInputStream;
 
 /**
  * @author Denis Danilin | denis@danilin.name

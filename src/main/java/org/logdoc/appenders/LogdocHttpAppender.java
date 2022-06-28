@@ -1,7 +1,7 @@
-package ru.gang.logdoc.appenders;
+package org.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ru.gang.logdoc.utils.Httper;
+import org.logdoc.utils.Httper;
 
 import java.io.ByteArrayOutputStream;
 import java.net.InetAddress;

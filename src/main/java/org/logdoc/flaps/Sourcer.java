@@ -1,4 +1,4 @@
-package ru.gang.logdoc.flaps;
+package org.logdoc.flaps;
 
 import java.util.function.Function;
 

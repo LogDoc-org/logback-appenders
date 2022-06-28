@@ -1,13 +1,13 @@
-package ru.gang.logdoc.appenders;
+package org.logdoc.appenders;
 
 import ch.qos.logback.classic.pattern.ThrowableProxyConverter;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
-import ru.gang.logdoc.flaps.Sourcer;
-import ru.gang.logdoc.flaps.impl.PostSourcer;
-import ru.gang.logdoc.flaps.impl.PreSourcer;
-import ru.gang.logdoc.flaps.impl.SimpleSourcer;
-import ru.gang.logdoc.flaps.impl.SourcerBoth;
+import org.logdoc.flaps.Sourcer;
+import org.logdoc.flaps.impl.PostSourcer;
+import org.logdoc.flaps.impl.PreSourcer;
+import org.logdoc.flaps.impl.SimpleSourcer;
+import org.logdoc.flaps.impl.SourcerBoth;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -21,7 +21,7 @@ import java.util.*;
 import static ru.gang.logdoc.LogDocConstants.Fields.*;
 import static ru.gang.logdoc.LogDocConstants.header;
 import static ru.gang.logdoc.LogDocConstants.logTimeFormat;
-import static ru.gang.logdoc.utils.Tools.*;
+import static org.logdoc.utils.Tools.*;
 
 
 /**

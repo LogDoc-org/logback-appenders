@@ -1,6 +1,6 @@
-package ru.gang.logdoc.flaps.impl;
+package org.logdoc.flaps.impl;
 
-import ru.gang.logdoc.flaps.Sourcer;
+import org.logdoc.flaps.Sourcer;
 
 /**
  * @author Denis Danilin | denis@danilin.name

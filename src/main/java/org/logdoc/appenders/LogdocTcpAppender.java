@@ -1,4 +1,4 @@
-package ru.gang.logdoc.appenders;
+package org.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 
