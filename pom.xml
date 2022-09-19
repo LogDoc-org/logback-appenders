@@ -47,10 +47,10 @@
     </developers>
 
     <scm>
-        <connection>scm:git:ssh://git@github.com/logdocpub/logback-appenders.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/logdocpub/logback-appenders.git</developerConnection>
-        <tag>logback-appenders-1.0.1</tag>
-        <url>https://github.com/logdocpub/logback-appenders</url>
+        <connection>scm:git:ssh://git@github.com/LogDoc-org/logback-appenders.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/LogDoc-org/logback-appenders.git</developerConnection>
+        <tag>logback-appenders-1.0.2</tag>
+        <url>https://github.com/LogDoc-org/logback-appenders</url>
     </scm>
 
     <properties>
