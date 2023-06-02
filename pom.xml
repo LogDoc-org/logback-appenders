@@ -4,7 +4,7 @@
 
     <groupId>org.logdoc</groupId>
     <artifactId>logback-appenders</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.2</version>
 
     <name>logback-appenders</name>
     <description>Logback Appenders with LogDoc protocol support</description>
