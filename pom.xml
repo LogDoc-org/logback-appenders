@@ -4,7 +4,7 @@
 
     <groupId>org.logdoc</groupId>
     <artifactId>logback-appenders</artifactId>
-    <version>1.0.3-SNAPSHOT</version>
+    <version>1.0.3</version>
 
     <name>logback-appenders</name>
     <description>Logback Appenders with LogDoc protocol support</description>
@@ -49,7 +49,7 @@
     <scm>
         <connection>scm:git:ssh://git@github.com/LogDoc-org/logback-appenders.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/LogDoc-org/logback-appenders.git</developerConnection>
-        <tag>logback-appenders-1.0.2</tag>
+        <tag>logback-appenders-1.0.3</tag>
         <url>https://github.com/LogDoc-org/logback-appenders</url>
     </scm>
 
