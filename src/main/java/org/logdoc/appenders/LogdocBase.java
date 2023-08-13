@@ -21,7 +21,8 @@ import java.util.*;
 import static org.logdoc.LogDocConstants.Fields.*;
 import static org.logdoc.LogDocConstants.header;
 import static org.logdoc.LogDocConstants.logTimeFormat;
-import static org.logdoc.utils.Tools.*;
+import static org.logdoc.helpers.Texts.isEmpty;
+import static org.logdoc.helpers.Texts.notNull;
 
 
 /**

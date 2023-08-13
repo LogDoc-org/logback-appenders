@@ -1,13 +1,15 @@
 package org.logdoc.appenders;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import org.logdoc.helpers.Sporadics;
 
 import java.io.ByteArrayOutputStream;
 import java.net.*;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.UUID;
 
 import static org.logdoc.LogDocConstants.header;
-import static org.logdoc.utils.Tools.token;
 
 /**
  * @author Denis Danilin | denis@danilin.name
@@ -44,7 +46,13 @@ public class LogdocUdpAppender extends LogdocBase {
             final byte[] data = encode(event);
 
             final int cycles = data.length / SPLITLEN + (data.length % SPLITLEN != 0 ? 1 : 0);
-            final byte[] token = token();
+
+            final UUID uuid = Sporadics.generateUuid();
+            final ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+            bb.putLong(uuid.getMostSignificantBits());
+            bb.putLong(uuid.getLeastSignificantBits());
+
+            final byte[] token = bb.array();
 
             for (int i = 0; i < cycles; i++)
                 try (final ByteArrayOutputStream pos = new ByteArrayOutputStream(2048)) {
